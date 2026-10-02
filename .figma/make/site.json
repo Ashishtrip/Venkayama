@@ -1,0 +1,10 @@
+{
+  "description": "Showcases a logo with a transparent background featuring a smooth, slow wiggle animation on the onion tip and subtle overall movement for engaging visuals.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
