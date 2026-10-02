@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import OnionLogo from "./components/OnionLogo";
+import AdminGate from "./AdminGate";
 
 const A = (f: string) => `/assets/${f}`;
 const mono = "font-mono uppercase";
 const disp = "font-display uppercase";
 
-const nav = ["Home", "Shop", "Collections", "Drops", "About"];
+const nav = [["Home", "/"], ["Shop", "/shop"], ["Drops", "/drops"], ["About", "/about"]] as const;
+
+const go = (path: string) => `#${path}`;
 
 const trust = [
   [A("c7929.svg"), "FREE SHIPPING", "ON ORDERS ABOVE ₹999"],
@@ -15,10 +18,10 @@ const trust = [
 ];
 
 const depts = [
-  { n: "01 // HEAVY DROP", t: ["T-", "SHIRTS"], img: "99450.png" },
-  { n: "02 // 450 GSM", t: ["HOODIES"], img: "ce1cd.png" },
-  { n: "03 // SNAPBACKS & 5-PANELS", t: ["CAPS"], img: "37da8.png" },
-  { n: "04 // RAW MERCH", t: ["TOTES"], img: "237a4.png" },
+  { n: "01 // HEAVY DROP", t: ["T-", "SHIRTS"], img: "99450.png", cat: "tees" },
+  { n: "02 // 450 GSM", t: ["HOODIES"], img: "ce1cd.png", cat: "hoodies" },
+  { n: "03 // SNAPBACKS & 5-PANELS", t: ["CAPS"], img: "37da8.png", cat: "caps" },
+  { n: "04 // RAW MERCH", t: ["TOTES"], img: "237a4.png", cat: "acc" },
 ];
 
 const products = [
@@ -44,22 +47,22 @@ function Arrow({ invert = false }: { invert?: boolean }) {
   return <img src={A("65ae0.svg")} alt="" className={`size-3 ${invert ? "invert" : ""}`} />;
 }
 
-function Header() {
+function Header({ path }: { path: string }) {
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-black/10 bg-white/95 backdrop-blur">
       <div className={`${mono} flex h-7 items-center justify-center bg-black px-4 text-[10px] tracking-[0.12em] text-white`}>
         Free shipping on orders over ₹999 • Cash on delivery available
       </div>
       <div className="mx-auto flex h-[60px] max-w-[1500px] items-center justify-between px-6">
-        <a href="#top" className="flex items-center gap-2.5">
+        <a href={go("/")} className="flex items-center gap-2.5">
           <OnionLogo className="h-9" sway={false} />
           <span className={`${disp} text-xl leading-[0.85] tracking-wide`}>
             Venkayam<br /><span className="text-[11px] tracking-[0.3em]">India</span>
           </span>
         </a>
         <nav className={`${mono} hidden gap-9 text-[11px] font-bold tracking-[0.12em] md:flex`}>
-          {nav.map((n, i) => (
-            <a key={n} href={`#${n.toLowerCase()}`} className={`relative py-1 after:absolute after:inset-x-0 after:bottom-0 after:h-px after:origin-left after:bg-black after:transition-transform ${i === 0 ? "after:scale-x-100" : "after:scale-x-0 hover:after:scale-x-100"}`}>
+          {nav.map(([n, to]) => (
+            <a key={n} href={go(to)} className={`relative py-1 after:absolute after:inset-x-0 after:bottom-0 after:h-px after:origin-left after:bg-black after:transition-transform ${path === to ? "after:scale-x-100" : "after:scale-x-0 hover:after:scale-x-100"}`}>
               {n}
             </a>
           ))}
@@ -68,13 +71,16 @@ function Header() {
           Bag [02]
         </button>
       </div>
+      <nav className={`${mono} flex justify-around border-t border-black/10 py-2 text-[10px] font-bold tracking-[0.12em] md:hidden`}>
+        {nav.map(([n, to]) => <a key={n} href={go(to)} className={path === to ? "underline underline-offset-4" : ""}>{n}</a>)}
+      </nav>
     </header>
   );
 }
 
 function Hero() {
   return (
-    <section id="home" className="relative overflow-hidden border-b border-black/10 bg-gradient-to-b from-neutral-100/70 via-white to-white px-6 pb-12 pt-[130px]">
+    <section className="relative overflow-hidden border-b border-black/10 bg-gradient-to-b from-neutral-100/70 via-white to-white px-6 pb-12 pt-[130px] md:pt-[130px]">
       <div className="mx-auto grid max-w-[1500px] items-center gap-10 lg:grid-cols-12">
         <div className="lg:col-span-4">
           <div className="mb-6 flex items-end gap-5">
@@ -92,8 +98,8 @@ function Hero() {
             Forged in the visceral heat of North Chennai cinema hoardings, painted tea-stall typography, and unyielding 280-450 GSM combed cotton.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
-            <a href="#shop" className={`${mono} flex items-center gap-3 bg-black px-6 py-3.5 text-[11px] font-bold tracking-[0.15em] text-white transition hover:gap-5`}>Shop collection <Arrow invert /></a>
-            <a href="#drops" className={`${mono} border border-black px-6 py-3.5 text-[11px] font-bold tracking-[0.15em] transition hover:bg-black hover:text-white`}>Explore drops</a>
+            <a href={go("/shop")} className={`${mono} flex items-center gap-3 bg-black px-6 py-3.5 text-[11px] font-bold tracking-[0.15em] text-white transition hover:gap-5`}>Shop collection <Arrow invert /></a>
+            <a href={go("/drops")} className={`${mono} border border-black px-6 py-3.5 text-[11px] font-bold tracking-[0.15em] transition hover:bg-black hover:text-white`}>Explore drops</a>
           </div>
           <p className={`${mono} mt-6 text-[10px] tracking-[0.15em] text-neutral-500`}>Batch: CHN-DROP-04 • Limit: 150 pcs / design</p>
         </div>
@@ -150,7 +156,7 @@ function Trust() {
 
 function Departments() {
   return (
-    <section id="collections" className="px-6 py-20">
+    <section className="px-6 py-20">
       <div className="mx-auto max-w-[1500px]">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-3 border-b-2 border-black pb-4">
           <div>
@@ -161,7 +167,7 @@ function Departments() {
         </div>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {depts.map((d) => (
-            <a key={d.n} href="#shop" className="group relative block aspect-[3/4] overflow-hidden bg-black text-white">
+            <a key={d.n} href={go(`/shop/${d.cat}`)} className="group relative block aspect-[3/4] overflow-hidden bg-black text-white">
               <img src={A(d.img)} alt={d.t.join("")} className="absolute inset-0 size-full object-cover grayscale transition duration-700 group-hover:scale-105" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent" />
               <span className={`${mono} absolute left-4 top-4 text-[9px] tracking-[0.15em] text-white/80`}>{d.n}</span>
@@ -177,26 +183,10 @@ function Departments() {
   );
 }
 
-function Featured() {
-  const [tab, setTab] = useState("all");
-  const list = products.filter((p) => tab === "all" || p.cat === tab);
+function ProductGrid({ items }: { items: typeof products }) {
   return (
-    <section id="shop" className="border-t border-black/10 bg-neutral-50 px-6 py-20">
-      <div className="mx-auto max-w-[1500px]">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className={`${disp} flex items-start gap-2 text-5xl leading-none md:text-6xl`}>Featured collection <span className={`${mono} bg-black px-1.5 py-0.5 text-[10px] tracking-widest text-white`}>New</span></h2>
-            <p className={`${mono} mt-3 text-[10px] tracking-[0.2em] text-neutral-500`}>Inspired by our culture. Made for today.</p>
-          </div>
-          <a href="#shop" className={`${mono} flex items-center gap-2 border-b border-black text-[10px] font-bold tracking-[0.15em]`}>View all archive <Arrow /></a>
-        </div>
-        <div className="mb-8 flex flex-wrap gap-2">
-          {tabs.map(([k, l]) => (
-            <button key={k} onClick={() => setTab(k)} className={`${mono} border border-black px-4 py-2 text-[10px] font-bold tracking-[0.12em] transition ${tab === k ? "bg-black text-white" : "bg-white hover:bg-neutral-200"}`}>{l}</button>
-          ))}
-        </div>
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {list.map((p) => (
+    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((p) => (
             <article key={p.name} className="group border border-black/10 bg-white">
               <div className="relative aspect-[4/5] overflow-hidden bg-neutral-200">
                 <img src={A(p.img)} alt={p.name} className="absolute inset-0 size-full object-cover grayscale transition duration-700 group-hover:scale-105" />
@@ -216,15 +206,13 @@ function Featured() {
             </article>
           ))}
         </div>
-      </div>
-    </section>
   );
 }
 
 function Manifesto() {
   const [copied, setCopied] = useState(false);
   return (
-    <section id="about" className="px-6 py-24">
+    <section className="px-6 py-24">
       <div className="mx-auto grid max-w-[1500px] items-center gap-12 lg:grid-cols-2">
         <div className="relative h-[520px] overflow-hidden bg-neutral-900 text-white">
           <img src={A("de740.png")} alt="Riders under Chennai hoardings" className="absolute inset-0 size-full object-cover grayscale" />
@@ -268,11 +256,11 @@ function Manifesto() {
 
 function Footer() {
   const cols: [string, string[]][] = [
-    ["Navigation", ["Shop all archive", "Latest drops", "Lookbook 2024", "Manifesto"]],
-    ["Assistance", ["Track order", "Domestic shipping", "Returns & exchanges", "Size matrix"]],
+    ["Navigation", ["Shop all archive|/shop", "Latest drops|/drops", "Lookbook 2024|/drops", "Manifesto|/about"]],
+    ["Assistance", ["Track order|/about", "Domestic shipping|/about", "Returns & exchanges|/about", "Size matrix|/about"]],
   ];
   return (
-    <footer id="drops" className="bg-black text-white">
+    <footer className="bg-black text-white">
       <div className="overflow-hidden border-b border-white/15 py-3">
         <div className={`${mono} marquee flex w-max gap-8 whitespace-nowrap text-[10px] tracking-[0.2em]`}>
           {[0, 1].map((k) => (
@@ -295,7 +283,7 @@ function Footer() {
         {cols.map(([h, l]) => (
           <div key={h}>
             <h3 className={`${mono} mb-5 text-[11px] font-bold tracking-[0.2em] text-white/50`}>{h}</h3>
-            <ul className="space-y-3 text-sm">{l.map((i) => <li key={i}><a href="#top" className="uppercase tracking-wide transition hover:underline">{i}</a></li>)}</ul>
+            <ul className="space-y-3 text-sm">{l.map((i) => <li key={i}><a href={go(i.split("|")[1])} className="uppercase tracking-wide transition hover:underline">{i.split("|")[0]}</a></li>)}</ul>
           </div>
         ))}
         <div>
@@ -311,13 +299,13 @@ function Footer() {
       <div className={`${mono} flex flex-wrap justify-between gap-3 border-t border-white/15 px-6 py-5 text-[9px] tracking-[0.15em] text-white/50`}>
         <span>© 2024 Venkayam India Clothing Corp. All rights reserved.</span>
         <span>Culture: Chennai • Manufacture: Tiruppur • Curation: Global</span>
-        <span>[VENKAYAM//ARCHIVE-2024]</span>
+        <a href="#/admin" className="hover:text-white">[VENKAYAM//ARCHIVE-2024] • Admin</a>
       </div>
     </footer>
   );
 }
 
-function useScrollReveal() {
+function useScrollReveal(path: string) {
   useEffect(() => {
     const targets = Array.from(
       document.querySelectorAll<HTMLElement>("main section > div > *, main article, footer > div > *")
@@ -343,20 +331,240 @@ function useScrollReveal() {
       io.disconnect();
       window.clearTimeout(failsafe);
     };
+  }, [path]);
+}
+
+function PageHead({ kicker, title, note }: { kicker: string; title: string; note?: string }) {
+  return (
+    <section className="border-b border-black/10 bg-gradient-to-b from-neutral-100/70 to-white px-6 pb-12 pt-[150px]">
+      <div className="mx-auto max-w-[1500px]">
+        <p className={`${mono} mb-3 text-[10px] tracking-[0.25em] text-neutral-500`}>{kicker}</p>
+        <h1 className={`${disp} text-[clamp(3.5rem,10vw,9rem)] leading-[0.88]`}>{title}</h1>
+        {note && <p className={`${mono} mt-5 max-w-xl text-[11px] tracking-[0.15em] text-neutral-600`}>{note}</p>}
+      </div>
+    </section>
+  );
+}
+
+function Cta({ to, label, invert = false }: { to: string; label: string; invert?: boolean }) {
+  return (
+    <a href={go(to)} className={`${mono} inline-flex items-center gap-3 px-6 py-3.5 text-[11px] font-bold tracking-[0.15em] transition hover:gap-5 ${invert ? "bg-white text-black" : "bg-black text-white"}`}>
+      {label} <Arrow invert={!invert} />
+    </a>
+  );
+}
+
+function Home() {
+  return (
+    <>
+      <Hero />
+      <Trust />
+      <Departments />
+      <section className="border-t border-black/10 bg-neutral-50 px-6 py-20">
+        <div className="mx-auto max-w-[1500px]">
+          <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className={`${mono} mb-2 text-[10px] tracking-[0.25em] text-neutral-500`}>Drop 04 // Live now</p>
+              <h2 className={`${disp} text-5xl leading-none md:text-6xl`}>Featured pieces</h2>
+            </div>
+            <Cta to="/drops" label="See the drop" />
+          </div>
+          <ProductGrid items={products.slice(0, 3)} />
+        </div>
+      </section>
+      <section className="bg-black px-6 py-20 text-white">
+        <div className="mx-auto grid max-w-[1500px] items-center gap-8 lg:grid-cols-2">
+          <h2 className={`${disp} text-[clamp(3rem,7vw,6rem)] leading-[0.95]`}>We wear our roots like armor.</h2>
+          <div>
+            <p className="max-w-lg text-[15px] leading-relaxed text-white/70">Born on the asphalt corridors of Chennai. Heavy combed Tiruppur cotton, stencil grit, and the raw weight of Tamil cinema hoardings.</p>
+            <div className="mt-6"><Cta to="/about" label="Read our story" invert /></div>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+const SORTS = [["featured", "Featured"], ["low", "Price: low to high"], ["high", "Price: high to low"], ["off", "Biggest saving"]] as const;
+
+function Shop({ cat }: { cat: string }) {
+  const [sort, setSort] = useState<(typeof SORTS)[number][0]>("featured");
+  const [q, setQ] = useState("");
+  const list = products
+    .filter((p) => (cat === "all" || p.cat === cat) && p.name.toLowerCase().includes(q.toLowerCase()))
+    .sort((a, b) => (sort === "low" ? a.price - b.price : sort === "high" ? b.price - a.price : sort === "off" ? b.was - b.price - (a.was - a.price) : 0));
+  return (
+    <>
+      <PageHead kicker="Archive // All departments" title="The full collection" note="Every piece in the Venkayam archive — heavyweight, pre-shrunk, made in Tiruppur." />
+      <section className="px-6 py-14">
+        <div className="mx-auto max-w-[1500px]">
+          <div className="mb-8 flex flex-wrap items-center gap-3">
+            {tabs.map(([k, l]) => (
+              <a key={k} href={go(k === "all" ? "/shop" : `/shop/${k}`)} className={`${mono} border border-black px-4 py-2 text-[10px] font-bold tracking-[0.12em] transition ${cat === k ? "bg-black text-white" : "bg-white hover:bg-neutral-200"}`}>{l}</a>
+            ))}
+            <div className="ml-auto flex flex-wrap gap-3">
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="SEARCH" className={`${mono} w-40 border border-black px-3 py-2 text-[10px] tracking-widest outline-none placeholder:text-neutral-400`} />
+              <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className={`${mono} border border-black bg-white px-3 py-2 text-[10px] font-bold tracking-wider`}>
+                {SORTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              </select>
+            </div>
+          </div>
+          <p className={`${mono} mb-4 text-[10px] tracking-[0.2em] text-neutral-500`}>{list.length} pieces</p>
+          {list.length ? <ProductGrid items={list} /> : <p className={`${mono} py-20 text-center text-[11px] text-neutral-500`}>Nothing matches your search.</p>}
+        </div>
+      </section>
+    </>
+  );
+}
+
+function useCountdown(target: number) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
   }, []);
+  const d = Math.max(0, target - now);
+  return [Math.floor(d / 864e5), Math.floor(d / 36e5) % 24, Math.floor(d / 6e4) % 60, Math.floor(d / 1e3) % 60];
+}
+
+const DROP_END = Date.now() + 6 * 864e5 + 5 * 36e5;
+const SOLD = [138, 112, 97, 74, 120, 88];
+
+function Drops() {
+  const [d, h, m, sec] = useCountdown(DROP_END);
+  const past = [["Drop 03", "Temple Run", "SOLD OUT IN 41 MIN", "f1497.png"], ["Drop 02", "Hoarding", "SOLD OUT IN 3 HRS", "9bdff.png"], ["Drop 01", "Zero", "SOLD OUT IN 1 DAY", "83098.png"]];
+  return (
+    <>
+      <PageHead kicker="Drop 04 // Batch CHN-DROP-04" title="Featured collection" note="Inspired by our culture. Made for today. 150 pieces per design — when they're gone, they're archived." />
+      <section className="bg-black px-6 py-8 text-white">
+        <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-6">
+          <p className={`${mono} text-[11px] font-bold tracking-[0.2em]`}>Drop closes in</p>
+          <div className="flex gap-3">
+            {[[d, "Days"], [h, "Hrs"], [m, "Min"], [sec, "Sec"]].map(([v, l]) => (
+              <div key={l as string} className="min-w-[72px] border border-white/30 px-3 py-2 text-center">
+                <p className={`${disp} text-4xl leading-none tabular-nums`}>{String(v).padStart(2, "0")}</p>
+                <p className={`${mono} mt-1 text-[8px] tracking-[0.2em] text-white/60`}>{l}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+      <section className="bg-neutral-50 px-6 py-16">
+        <div className="mx-auto max-w-[1500px]">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {products.map((p, i) => (
+              <div key={p.name}>
+                <ProductGrid items={[p]} />
+                <div className="mt-2 border border-black/10 bg-white px-4 py-3">
+                  <div className={`${mono} mb-1 flex justify-between text-[9px] font-bold tracking-wider`}><span>Claimed</span><span>{SOLD[i]}/150</span></div>
+                  <div className="h-2 bg-neutral-200"><div className={`h-full ${SOLD[i] > 130 ? "bg-red-700" : "bg-black"}`} style={{ width: `${(SOLD[i] / 150) * 100}%` }} /></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+      <section className="px-6 py-20">
+        <div className="mx-auto max-w-[1500px]">
+          <h2 className={`${disp} mb-8 border-b-2 border-black pb-4 text-5xl leading-none md:text-6xl`}>Past drops</h2>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {past.map(([n, t, s, img]) => (
+              <div key={n} className="relative aspect-[4/3] overflow-hidden bg-black text-white">
+                <img src={A(img)} alt="" className="absolute inset-0 size-full object-cover opacity-60 grayscale" />
+                <div className="absolute inset-x-5 bottom-5">
+                  <p className={`${mono} text-[10px] tracking-[0.2em] text-white/70`}>{n}</p>
+                  <p className={`${disp} text-3xl`}>{t}</p>
+                  <p className={`${mono} mt-1 text-[9px] tracking-wider text-red-400`}>{s}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function About() {
+  const facts = [["2024", "Founded in Chennai"], ["280–450", "GSM combed cotton"], ["150", "Pieces per design"], ["100%", "Made in Tiruppur"]];
+  const steps = [["01", "Sketch", "Hand-cut stencils and hoarding-inspired lettering drawn in North Chennai."], ["02", "Knit & pre-shrink", "Combed Tiruppur yarn, pre-shrunk so oversized fits stay oversized."], ["03", "Screenprint", "Plastisol inks cured for lifetime endurance, one colour at a time."], ["04", "Dispatch", "Packed in Chennai and shipped pan-India, COD available."]];
+  const faqs = [["How does sizing run?", "Oversized, boxy cuts. Take your usual size for the intended fit, or size down one for a closer look."], ["What is your return policy?", "7 days from delivery for unworn pieces with tags. Drop pieces marked final sale are excluded."], ["Do you ship worldwide?", "Pan-India with free shipping above ₹999, and worldwide courier from Chennai."], ["Is cash on delivery available?", "Yes, across India. A small verification call may precede dispatch."]];
+  const [open, setOpen] = useState(0);
+  return (
+    <>
+      <PageHead kicker="Origin manifesto" title="About Venkayam" note="Tamil avant-garde streetwear archive // Est. 2024" />
+      <section className="border-b border-black/10 px-6 py-12">
+        <div className="mx-auto grid max-w-[1500px] grid-cols-2 gap-6 lg:grid-cols-4">
+          {facts.map(([v, l]) => (
+            <div key={l} className="border-l-2 border-black pl-4">
+              <p className={`${disp} text-5xl leading-none`}>{v}</p>
+              <p className={`${mono} mt-2 text-[10px] tracking-[0.15em] text-neutral-500`}>{l}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+      <Manifesto />
+      <section className="bg-neutral-50 px-6 py-20">
+        <div className="mx-auto max-w-[1500px]">
+          <h2 className={`${disp} mb-8 border-b-2 border-black pb-4 text-5xl leading-none md:text-6xl`}>How it&apos;s made</h2>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {steps.map(([n, t, d]) => (
+              <div key={n} className="border border-black/15 bg-white p-6">
+                <span className={`${disp} text-4xl`}>{n}</span>
+                <h3 className={`${mono} mt-3 text-xs font-bold tracking-wider`}>{t}</h3>
+                <p className="mt-2 text-sm text-neutral-600">{d}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+      <section className="px-6 py-20">
+        <div className="mx-auto grid max-w-[1500px] gap-10 lg:grid-cols-[1fr_1.4fr]">
+          <div>
+            <h2 className={`${disp} text-5xl leading-none md:text-6xl`}>Shipping, returns &amp; sizing</h2>
+            <p className="mt-4 text-neutral-600">Straight answers before you order.</p>
+          </div>
+          <div className="border-t border-black">
+            {faqs.map(([q, a], i) => (
+              <div key={q} className="border-b border-black/20">
+                <button onClick={() => setOpen(open === i ? -1 : i)} aria-expanded={open === i} className={`${mono} flex w-full items-center justify-between py-5 text-left text-[12px] font-bold tracking-wider`}>
+                  {q}<span className="text-xl">{open === i ? "−" : "+"}</span>
+                </button>
+                {open === i && <p className="pb-5 text-sm leading-relaxed text-neutral-600">{a}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function parseRoute() {
+  const raw = window.location.hash.replace(/^#/, "") || "/";
+  const [, page = "", sub = ""] = raw.split("/");
+  return { page, sub };
 }
 
 export default function App() {
-  useScrollReveal();
+  const [route, setRoute] = useState(parseRoute);
+  useEffect(() => {
+    const on = () => {
+      setRoute(parseRoute());
+      window.scrollTo(0, 0);
+    };
+    window.addEventListener("hashchange", on);
+    return () => window.removeEventListener("hashchange", on);
+  }, []);
+  const { page, sub } = route;
+  const path = page ? `/${page}` : "/";
+  useScrollReveal(page === "admin" ? "" : path + sub);
+  if (page === "admin") return <AdminGate />;
   return (
-    <div id="top">
-      <Header />
-      <main>
-        <Hero />
-        <Trust />
-        <Departments />
-        <Featured />
-        <Manifesto />
+    <div>
+      <Header path={path} />
+      <main key={path + sub}>
+        {page === "shop" ? <Shop cat={tabs.some(([k]) => k === sub) ? sub : "all"} /> : page === "drops" ? <Drops /> : page === "about" ? <About /> : <Home />}
       </main>
       <Footer />
     </div>
