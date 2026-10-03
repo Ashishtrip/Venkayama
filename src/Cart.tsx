@@ -1,4 +1,5 @@
 import OnionLogo from "./components/OnionLogo";
+import { actions, discountFor, getDB, imgSrc, useDB } from "./store";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 const mono = "font-mono uppercase";
@@ -16,7 +17,6 @@ const CartCtx = createContext<Ctx>({ lines: [], count: 0, add: () => {}, open: (
 export const useCart = () => useContext(CartCtx);
 
 type View = "cart" | "checkout";
-const FREE_SHIP = 999;
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([]);
@@ -27,10 +27,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [stage, setStage] = useState<null | "loading" | "done">(null);
   const [progress, setProgress] = useState(0);
   const [paid, setPaid] = useState(0);
+  const settings = useDB((d) => d.settings);
+  const FREE_SHIP = settings.freeShip;
+  const [code, setCode] = useState("");
+  const [applied, setApplied] = useState("");
+  const [codeMsg, setCodeMsg] = useState("");
 
   const subtotal = lines.reduce((a, l) => a + l.price * l.qty, 0);
   const count = lines.reduce((a, l) => a + l.qty, 0);
-  const shipping = subtotal === 0 || subtotal >= FREE_SHIP ? 0 : 79;
+  const disc = applied ? discountFor(applied, subtotal) : { amount: 0 };
+  const after = subtotal - disc.amount;
+  const shipping = subtotal === 0 || after >= FREE_SHIP ? 0 : settings.shipFee;
+  const codFee = pay === "COD" && subtotal > 0 ? settings.codFee : 0;
+  const total = after + shipping + codFee;
 
   const ctx = useMemo<Ctx>(
     () => ({
@@ -55,12 +64,32 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [isOpen]);
 
   const setQty = (key: string, d: number) =>
-    setLines((ls) => ls.flatMap((l) => (l.key !== key ? [l] : l.qty + d <= 0 ? [] : [{ ...l, qty: l.qty + d }])));
+    setLines((ls) =>
+      ls.flatMap((l) => {
+        if (l.key !== key) return [l];
+        const stock = getDB().products.find((p) => p.name === l.name)?.sizes[l.size] ?? 99;
+        const qty = Math.min(l.qty + d, stock);
+        return qty <= 0 ? [] : [{ ...l, qty }];
+      })
+    );
+  const applyCode = () => {
+    const res = discountFor(code, subtotal);
+    if (res.error) { setCodeMsg(res.error); setApplied(""); return; }
+    setApplied(res.promo!.code);
+    setCodeMsg(`${res.promo!.code} applied, saving ${inr(res.amount)}`);
+  };
 
   const place = (e: React.FormEvent) => {
     e.preventDefault();
-    setOrderId(`VNK-${2500 + Math.floor(Math.random() * 400)}`);
-    setPaid(subtotal + shipping);
+    const f = new FormData(e.currentTarget as HTMLFormElement);
+    const order = actions.placeOrder({
+      customer: String(f.get("name")), phone: String(f.get("phone")), address: String(f.get("address")),
+      city: String(f.get("city")), pay, amount: total, promo: applied || undefined,
+      items: lines.map((l) => ({ name: l.name, size: l.size, qty: l.qty, price: l.price })),
+    });
+    setOrderId(order.id);
+    setPaid(total);
+    setApplied(""); setCode(""); setCodeMsg("");
     setLines([]);
     setOpen(false);
     setProgress(0);
@@ -112,7 +141,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                     <ul className="divide-y divide-black/10">
                       {lines.map((l) => (
                         <li key={l.key} className="flex gap-4 py-4">
-                          <img src={`/assets/${l.img}`} alt="" className="h-24 w-20 shrink-0 bg-neutral-200 object-cover grayscale" />
+                          <img src={imgSrc(l.img)} alt="" className="h-24 w-20 shrink-0 bg-neutral-200 object-cover grayscale" />
                           <div className="flex min-w-0 flex-1 flex-col">
                             <p className="text-[13px] font-extrabold uppercase leading-snug">{l.name}</p>
                             <p className={`${mono} mt-1 text-[10px] tracking-wider text-neutral-500`}>Size {l.size}</p>
@@ -134,8 +163,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               {lines.length > 0 && (
                 <footer className="space-y-3 border-t-2 border-black p-6">
                   <div className={`${mono} flex justify-between text-[11px] font-bold tracking-wider`}><span>Subtotal</span><span>{inr(subtotal)}</span></div>
+                  <div className="flex gap-2">
+                    <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="PROMO CODE" aria-label="Promo code" className={`${mono} min-w-0 flex-1 border border-black px-3 py-2 text-[10px] tracking-widest outline-none`} />
+                    <button type="button" onClick={applyCode} className={`${mono} border border-black px-4 text-[10px] font-bold tracking-wider hover:bg-black hover:text-white`}>Apply</button>
+                  </div>
+                  {codeMsg && <p className={`${mono} text-[10px] tracking-wider ${applied ? "text-emerald-700" : "text-red-700"}`}>{codeMsg}</p>}
+                  {disc.amount > 0 && <div className={`${mono} flex justify-between text-[10px] tracking-wider text-emerald-700`}><span>Discount</span><span>−{inr(disc.amount)}</span></div>}
                   <div className={`${mono} flex justify-between text-[10px] tracking-wider text-neutral-500`}><span>Shipping</span><span>{shipping ? inr(shipping) : "Free"}</span></div>
-                  <button onClick={() => setView("checkout")} className={`${mono} w-full bg-black py-4 text-[11px] font-bold tracking-[0.15em] text-white transition hover:bg-neutral-800`}>Checkout • {inr(subtotal + shipping)}</button>
+                  <button onClick={() => setView("checkout")} className={`${mono} w-full bg-black py-4 text-[11px] font-bold tracking-[0.15em] text-white transition hover:bg-neutral-800`}>Checkout • {inr(total)}</button>
                 </footer>
               )}
             </>
@@ -143,7 +178,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             <form onSubmit={place} className="flex flex-1 flex-col overflow-y-auto">
               <div className="flex-1 space-y-4 p-6">
                 <button type="button" onClick={() => setView("cart")} className={`${mono} text-[10px] font-bold tracking-wider underline`}>← Back to bag</button>
-                {[["name", "Full name", "text"], ["phone", "Phone", "tel"], ["address", "Delivery address", "text"], ["pin", "PIN code", "text"]].map(([n, l, t]) => (
+                {[["name", "Full name", "text"], ["phone", "Phone", "tel"], ["address", "Delivery address", "text"], ["city", "City", "text"], ["pin", "PIN code", "text"]].map(([n, l, t]) => (
                   <label key={n} className="block">
                     <span className={`${mono} text-[10px] font-bold tracking-wider`}>{l}</span>
                     <input required name={n} type={t} className="mt-1 w-full border border-black px-3 py-3 text-sm outline-none focus:bg-neutral-100" />
@@ -161,10 +196,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                   {lines.map((l) => (
                     <p key={l.key} className="flex justify-between text-[13px]"><span className="truncate pr-3">{l.name} ({l.size}) ×{l.qty}</span><span className={`${mono} font-bold`}>{inr(l.price * l.qty)}</span></p>
                   ))}
+                  {codFee > 0 && <p className="flex justify-between text-[13px] text-neutral-600"><span>Cash on delivery fee</span><span className={`${mono} font-bold`}>{inr(codFee)}</span></p>}
+                  {disc.amount > 0 && <p className="flex justify-between text-[13px] text-emerald-700"><span>Promo {applied}</span><span className={`${mono} font-bold`}>−{inr(disc.amount)}</span></p>}
                 </div>
               </div>
               <footer className="border-t-2 border-black p-6">
-                <button className={`${mono} w-full bg-black py-4 text-[11px] font-bold tracking-[0.15em] text-white transition hover:bg-neutral-800`}>Place order • {inr(subtotal + shipping)}</button>
+                <button className={`${mono} w-full bg-black py-4 text-[11px] font-bold tracking-[0.15em] text-white transition hover:bg-neutral-800`}>Place order • {inr(total)}</button>
               </footer>
             </form>
           )}

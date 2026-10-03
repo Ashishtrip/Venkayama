@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import OnionLogo from "./components/OnionLogo";
 import AdminGate from "./AdminGate";
 import { Lookbook, TrackOrder, Shipping, Returns, SizeMatrix } from "./Pages";
+import { useDB, imgSrc, stockLabel, offLabel, type Product } from "./store";
+import AuthPage, { useSession, displayName } from "./Auth";
+import { getSupabase } from "./lib/supabase";
 import { CartProvider, useCart } from "./Cart";
 
 const A = (f: string) => `/assets/${f}`;
@@ -26,17 +29,13 @@ const depts = [
   { n: "04 // RAW MERCH", t: ["TOTES"], img: "237a4.png", cat: "acc" },
 ];
 
-const products = [
-  { img: "f1497.png", tag: "280 GSM", badge: "EDITION: DROP 04", stock: "IN STOCK", name: "THALAIVAR TRIBUTE 280 GSM OVERSIZED TEE", price: 1499, was: 2299, off: "35% OFF", cat: "tees" },
-  { img: "2e222.png", tag: "450 GSM TERRY", badge: "FLAGSHIP PIECE", stock: "LIMITED [40 PCS]", name: "VENKAYAM ONION MONOGRAM HOODIE (CHARCOAL)", price: 2999, was: 3999, off: "SAVE ₹1,000", cat: "hoodies", onion: true },
-  { img: "9bdff.png", tag: "ACID WASH 260 GSM", badge: "VINTAGE WASH", stock: "FEW REMAINING", name: "MADRAS NOIR ACID WASH GRAPHIC TEE", price: 1699, was: 2499, off: "32% OFF", cat: "tees" },
-  { img: "79b1c.png", tag: "OFF-WHITE HEAVY", badge: "COLLAB EDITION", stock: "IN STOCK", name: "KOLLYWOOD RETRO CLUB TEE", price: 1599, was: 2199, off: "SAVE ₹600", cat: "tees" },
-  { img: "83098.png", tag: "COTTON CANVAS", badge: "HEADWEAR SPEC", stock: "POPULAR", name: "VENKAYAM STREETWEAR 5-PANEL CAP", price: 999, was: 1499, off: "33% OFF", cat: "caps" },
-  { img: "62447.png", tag: "16 OZ DUCK CANVAS", badge: "DAILY CARRY", stock: "IN STOCK", name: "HEAVYWEIGHT CANVAS ONION TOTE BAG", price: 799, was: 1199, off: "SAVE ₹400", cat: "acc", emblem: "f6362.png" },
-];
+function useProducts() {
+  const all = useDB((d) => d.products);
+  return useMemo(() => all.filter((p) => p.active), [all]);
+}
 
 const tabs = [
-  ["all", "ALL ARCHIVE [06]"],
+  ["all", "ALL ARCHIVE"],
   ["tees", "OVERSIZED TEES"],
   ["hoodies", "HEAVY HOODIES"],
   ["caps", "HEADWEAR"],
@@ -53,6 +52,7 @@ function Arrow({ invert = false }: { invert?: boolean }) {
 }
 
 function Header({ path }: { path: string }) {
+  const session = useSession();
   const { count, open } = useCart();
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-black/10 bg-white/95 backdrop-blur">
@@ -73,9 +73,19 @@ function Header({ path }: { path: string }) {
             </a>
           ))}
         </nav>
+        <div className="flex items-center gap-3">
+        {session ? (
+          <span className={`${mono} hidden items-center gap-3 text-[10px] font-bold tracking-[0.12em] sm:flex`}>
+            <span className="max-w-28 truncate">Hi, {displayName(session)}</span>
+            <button onClick={() => getSupabase().auth.signOut()} className="underline underline-offset-4">Log out</button>
+          </span>
+        ) : (
+          <a href={go("/login")} className={`${mono} text-[11px] font-bold tracking-[0.12em] underline-offset-4 hover:underline`}>Log in</a>
+        )}
         <button onClick={open} className={`${mono} border border-black px-3 py-1.5 text-[11px] font-bold tracking-widest transition hover:bg-black hover:text-white`}>
           Bag [{String(count).padStart(2, "0")}]
         </button>
+        </div>
       </div>
       <nav className={`${mono} flex justify-around border-t border-black/10 py-2 text-[10px] font-bold tracking-[0.12em] md:hidden`}>
         {nav.map(([n, to]) => <a key={n} href={go(to)} className={path === to ? "underline underline-offset-4" : ""}>{n}</a>)}
@@ -189,15 +199,12 @@ function Departments() {
   );
 }
 
-const sizesFor = (cat: string): [string, boolean][] =>
-  cat === "caps" || cat === "acc"
-    ? [["One size", true]]
-    : [["S", true], ["M", true], ["L", true], ["XL", true], ["XXL", cat !== "hoodies"]];
+const sizesFor = (p: Product): [string, boolean][] => Object.entries(p.sizes).map(([k, n]) => [k, n > 0]);
 
-function ProductCard({ p }: { p: (typeof products)[number] }) {
+function ProductCard({ p }: { p: Product }) {
   const { add } = useCart();
-  const sizes = sizesFor(p.cat);
-  const [size, setSize] = useState(sizes.length === 1 ? sizes[0][0] : "");
+  const sizes = sizesFor(p);
+  const [size, setSize] = useState(sizes.length === 1 && sizes[0][1] ? sizes[0][0] : "");
   const [warn, setWarn] = useState(false);
   const act = (buyNow: boolean) => {
     if (!size) { setWarn(true); return; }
@@ -206,19 +213,19 @@ function ProductCard({ p }: { p: (typeof products)[number] }) {
   return (
     <article className="group flex flex-col border border-black/10 bg-white">
       <a href={href(p)} aria-label={`View ${p.name}`} className="relative block aspect-[4/5] overflow-hidden bg-neutral-200">
-        <img src={A(p.img)} alt={p.name} className="absolute inset-0 size-full object-cover grayscale transition duration-700 group-hover:scale-105" />
+        <img src={imgSrc(p.img)} alt={p.name} className="absolute inset-0 size-full object-cover grayscale transition duration-700 group-hover:scale-105" />
         {p.emblem && <img src={A(p.emblem)} alt="" className="absolute left-1/2 top-[48%] w-1/4 -translate-x-1/2 -translate-y-1/2 mix-blend-multiply" />}
         <span className={`${mono} absolute left-3 top-3 bg-white px-2 py-1 text-[9px] font-bold tracking-[0.1em]`}>{p.tag}</span>
         <span className={`${mono} absolute bottom-3 left-3 bg-black px-2 py-1 text-[9px] font-bold tracking-[0.1em] text-white`}>{p.badge}</span>
         <span className={`${mono} absolute bottom-3 right-3 bg-white px-2 py-1 text-[9px] font-bold tracking-[0.1em] opacity-0 transition group-hover:opacity-100`}>View →</span>
       </a>
       <div className="flex flex-1 flex-col p-5">
-        <div className={`${mono} mb-2 flex justify-between text-[9px] tracking-[0.12em] text-neutral-500`}><span>{p.badge}</span><span className="font-bold text-black">{p.stock}</span></div>
+        <div className={`${mono} mb-2 flex justify-between text-[9px] tracking-[0.12em] text-neutral-500`}><span>{p.badge}</span><span className="font-bold text-black">{stockLabel(p)}</span></div>
         <h3 className="text-[15px] font-extrabold uppercase leading-snug"><a href={href(p)} className="hover:underline">{p.name}</a></h3>
         <div className="mt-3 flex items-center gap-3">
           <span className={`${mono} text-base font-bold`}>{inr(p.price)}</span>
           <span className={`${mono} text-xs text-neutral-400 line-through`}>{inr(p.was)}</span>
-          <span className={`${mono} ml-auto bg-neutral-100 px-2 py-1 text-[9px] font-bold tracking-wider`}>{p.off}</span>
+          <span className={`${mono} ml-auto bg-neutral-100 px-2 py-1 text-[9px] font-bold tracking-wider`}>{offLabel(p)}</span>
         </div>
         <div className="mt-4">
           <p className={`${mono} mb-2 flex justify-between text-[9px] font-bold tracking-[0.15em] ${warn && !size ? "text-red-700" : "text-neutral-500"}`}>
@@ -248,6 +255,7 @@ const details: Record<string, { blurb: string; specs: [string, string][]; fit: s
 };
 
 function ProductPage({ id }: { id: string }) {
+  const products = useProducts();
   const p = products.find((x) => slug(x) === id);
   const { add } = useCart();
   const [size, setSize] = useState("");
@@ -264,7 +272,7 @@ function ProductPage({ id }: { id: string }) {
     );
   }
   const d = details[p.cat];
-  const sizes = sizesFor(p.cat);
+  const sizes = sizesFor(p);
   const one = sizes.length === 1;
   const chosen = one ? sizes[0][0] : size;
   const act = (buyNow: boolean) => {
@@ -273,7 +281,7 @@ function ProductPage({ id }: { id: string }) {
   };
   const more = [...products.filter((x) => x.cat === p.cat && x !== p), ...products.filter((x) => x.cat !== p.cat)].slice(0, 3);
   const acc: [string, string][] = [
-    ["Details", d.blurb],
+    ["Details", p.description || d.blurb],
     ["Fit & sizing", d.fit],
     ["Shipping & returns", "Free shipping above ₹999, otherwise ₹79. Dispatched from Chennai within 24 hours. COD available pan-India. 7-day easy returns on unworn pieces."],
   ];
@@ -288,20 +296,20 @@ function ProductPage({ id }: { id: string }) {
           </nav>
           <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
             <div className="relative aspect-[4/5] overflow-hidden bg-neutral-200 lg:sticky lg:top-28 lg:self-start">
-              <img src={A(p.img)} alt={p.name} className="absolute inset-0 size-full object-cover grayscale" />
+              <img src={imgSrc(p.img)} alt={p.name} className="absolute inset-0 size-full object-cover grayscale" />
               {p.emblem && <img src={A(p.emblem)} alt="" className="absolute left-1/2 top-[48%] w-1/4 -translate-x-1/2 -translate-y-1/2 mix-blend-multiply" />}
               <span className={`${mono} absolute left-4 top-4 bg-white px-3 py-1.5 text-[10px] font-bold tracking-[0.1em]`}>{p.tag}</span>
               <span className={`${mono} absolute bottom-4 left-4 bg-black px-3 py-1.5 text-[10px] font-bold tracking-[0.1em] text-white`}>{p.badge}</span>
             </div>
             <div>
-              <p className={`${mono} mb-3 flex justify-between text-[10px] tracking-[0.2em] text-neutral-500`}><span>{p.badge}</span><span className="font-bold text-black">{p.stock}</span></p>
+              <p className={`${mono} mb-3 flex justify-between text-[10px] tracking-[0.2em] text-neutral-500`}><span>{p.badge}</span><span className="font-bold text-black">{stockLabel(p)}</span></p>
               <h1 className={`${disp} text-[clamp(2.2rem,4.5vw,4.2rem)] leading-[0.95]`}>{p.name}</h1>
               <div className="mt-5 flex items-center gap-4">
                 <span className={`${mono} text-2xl font-bold`}>{inr(p.price)}</span>
                 <span className={`${mono} text-sm text-neutral-400 line-through`}>{inr(p.was)}</span>
-                <span className={`${mono} bg-neutral-100 px-2.5 py-1 text-[10px] font-bold tracking-wider`}>{p.off}</span>
+                <span className={`${mono} bg-neutral-100 px-2.5 py-1 text-[10px] font-bold tracking-wider`}>{offLabel(p)}</span>
               </div>
-              <p className="mt-6 max-w-xl text-[15px] leading-relaxed text-neutral-700">{d.blurb}</p>
+              <p className="mt-6 max-w-xl text-[15px] leading-relaxed text-neutral-700">{p.description || d.blurb}</p>
 
               <div className="mt-8">
                 <p className={`${mono} mb-3 flex justify-between text-[10px] font-bold tracking-[0.15em] ${warn && !chosen ? "text-red-700" : "text-neutral-500"}`}>
@@ -367,7 +375,7 @@ function ProductPage({ id }: { id: string }) {
   );
 }
 
-function ProductGrid({ items }: { items: typeof products }) {
+function ProductGrid({ items }: { items: Product[] }) {
   return (
     <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {items.map((p) => <ProductCard key={p.name} p={p} />)}
@@ -521,6 +529,7 @@ function Cta({ to, label, invert = false }: { to: string; label: string; invert?
 }
 
 function Home() {
+  const products = useProducts();
   return (
     <>
       <Hero />
@@ -554,6 +563,7 @@ function Home() {
 const SORTS = [["featured", "Featured"], ["low", "Price: low to high"], ["high", "Price: high to low"], ["off", "Biggest saving"]] as const;
 
 function Shop({ cat }: { cat: string }) {
+  const products = useProducts();
   const [sort, setSort] = useState<(typeof SORTS)[number][0]>("featured");
   const [q, setQ] = useState("");
   const list = products
@@ -566,7 +576,7 @@ function Shop({ cat }: { cat: string }) {
         <div className="mx-auto max-w-[1500px]">
           <div className="mb-8 flex flex-wrap items-center gap-3">
             {tabs.map(([k, l]) => (
-              <a key={k} href={go(k === "all" ? "/shop" : `/shop/${k}`)} className={`${mono} border border-black px-4 py-2 text-[10px] font-bold tracking-[0.12em] transition ${cat === k ? "bg-black text-white" : "bg-white hover:bg-neutral-200"}`}>{l}</a>
+              <a key={k} href={go(k === "all" ? "/shop" : `/shop/${k}`)} className={`${mono} border border-black px-4 py-2 text-[10px] font-bold tracking-[0.12em] transition ${cat === k ? "bg-black text-white" : "bg-white hover:bg-neutral-200"}`}>{k === "all" ? `${l} [${String(products.length).padStart(2, "0")}]` : l}</a>
             ))}
             <div className="ml-auto flex flex-wrap gap-3">
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="SEARCH" className={`${mono} w-40 border border-black px-3 py-2 text-[10px] tracking-widest outline-none placeholder:text-neutral-400`} />
@@ -594,9 +604,9 @@ function useCountdown(target: number) {
 }
 
 const DROP_END = Date.now() + 6 * 864e5 + 5 * 36e5;
-const SOLD = [138, 112, 97, 74, 120, 88];
 
 function Drops() {
+  const products = useProducts().filter((p) => p.drop);
   const [d, h, m, sec] = useCountdown(DROP_END);
   const past = [["Drop 03", "Temple Run", "SOLD OUT IN 41 MIN", "f1497.png"], ["Drop 02", "Hoarding", "SOLD OUT IN 3 HRS", "9bdff.png"], ["Drop 01", "Zero", "SOLD OUT IN 1 DAY", "83098.png"]];
   return (
@@ -618,12 +628,12 @@ function Drops() {
       <section className="bg-neutral-50 px-6 py-16">
         <div className="mx-auto max-w-[1500px]">
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {products.map((p, i) => (
-              <div key={p.name}>
+            {products.map((p) => (
+              <div key={p.id}>
                 <ProductCard p={p} />
                 <div className="mt-2 border border-black/10 bg-white px-4 py-3">
-                  <div className={`${mono} mb-1 flex justify-between text-[9px] font-bold tracking-wider`}><span>Claimed</span><span>{SOLD[i]}/150</span></div>
-                  <div className="h-2 bg-neutral-200"><div className={`h-full ${SOLD[i] > 130 ? "bg-red-700" : "bg-black"}`} style={{ width: `${(SOLD[i] / 150) * 100}%` }} /></div>
+                  <div className={`${mono} mb-1 flex justify-between text-[9px] font-bold tracking-wider`}><span>Claimed</span><span>{Math.min(150, p.claimed)}/150</span></div>
+                  <div className="h-2 bg-neutral-200"><div className={`h-full ${p.claimed > 130 ? "bg-red-700" : "bg-black"}`} style={{ width: `${(Math.min(150, p.claimed) / 150) * 100}%` }} /></div>
                 </div>
               </div>
             ))}
@@ -730,7 +740,7 @@ export default function App() {
     <CartProvider>
       <Header path={page === "product" ? "/shop" : path} />
       <main key={path + sub}>
-        {page === "shop" ? <Shop cat={tabs.some(([k]) => k === sub) ? sub : "all"} /> : page === "lookbook" ? <Lookbook /> : page === "track" ? <TrackOrder /> : page === "shipping" ? <Shipping /> : page === "returns" ? <Returns /> : page === "sizes" ? <SizeMatrix /> : page === "product" ? <ProductPage id={sub} /> : page === "drops" ? <Drops /> : page === "about" ? <About /> : <Home />}
+        {page === "shop" ? <Shop cat={tabs.some(([k]) => k === sub) ? sub : "all"} /> : page === "login" || page === "signup" ? <AuthPage initial={page} /> : page === "lookbook" ? <Lookbook /> : page === "track" ? <TrackOrder /> : page === "shipping" ? <Shipping /> : page === "returns" ? <Returns /> : page === "sizes" ? <SizeMatrix /> : page === "product" ? <ProductPage id={sub} /> : page === "drops" ? <Drops /> : page === "about" ? <About /> : <Home />}
       </main>
       <Footer />
     </CartProvider>

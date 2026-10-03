@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FLOW, getDB, imgSrc, itemsText, useDB, type Order } from "./store";
 
 const mono = "font-mono uppercase";
 const disp = "font-display uppercase";
@@ -33,27 +34,17 @@ const Help = () => (
 );
 
 /* ---------- Lookbook ---------- */
-const looks = [
-  ["99450.png", "Look 01", "Tee, Night shift", "tall"],
-  ["ce1cd.png", "Look 02", "Charcoal heavy hoodie", "wide"],
-  ["f1497.png", "Look 03", "Thalaivar tribute", "tall"],
-  ["37da8.png", "Look 04", "Five-panel, Royapettah", "tall"],
-  ["9bdff.png", "Look 05", "Madras noir wash", "wide"],
-  ["79b1c.png", "Look 06", "Retro club", "tall"],
-  ["237a4.png", "Look 07", "Canvas carry", "tall"],
-  ["2e222.png", "Look 08", "Monogram, close", "wide"],
-] as const;
-
 export function Lookbook() {
+  const looks = useDB((d) => d.looks);
   return (
     <>
       <Head kicker="Season 01 // Shot on North Chennai streets" title="Lookbook 2026" note="Eight looks. Hoardings, tea stalls, rain-slick asphalt and the people who wear it all." />
       <Block>
         <div className="columns-1 gap-5 sm:columns-2 lg:columns-3">
-          {looks.map(([img, n, t, shape]) => (
-            <figure key={n} className="group mb-5 break-inside-avoid">
+          {looks.map(({ id, img, label: n, title: t, shape }) => (
+            <figure key={id} className="group mb-5 break-inside-avoid">
               <div className={`relative overflow-hidden bg-neutral-200 ${shape === "tall" ? "aspect-[3/4]" : "aspect-[4/3]"}`}>
-                <img src={A(img)} alt={`${n}: ${t}`} className="absolute inset-0 size-full object-cover grayscale transition duration-700 group-hover:scale-105 group-hover:grayscale-0" />
+                <img src={imgSrc(img)} alt={`${n}: ${t}`} className="absolute inset-0 size-full object-cover grayscale transition duration-700 group-hover:scale-105 group-hover:grayscale-0" />
               </div>
               <figcaption className={`${mono} mt-3 flex justify-between text-[10px] tracking-[0.15em]`}>
                 <span className="font-bold">{n}</span><span className="text-neutral-500">{t}</span>
@@ -73,19 +64,20 @@ export function Lookbook() {
 }
 
 /* ---------- Track order ---------- */
-const STEPS = ["Placed", "Printing", "Packed", "Shipped", "Delivered"];
+const STEPS: string[] = FLOW;
 const NOTES = ["Order confirmed", "Graphics being screen-printed", "Packed at Chennai studio", "With courier, on the way", "Delivered to your door"];
 
 export function TrackOrder() {
   const [id, setId] = useState("");
   const [phone, setPhone] = useState("");
-  const [res, setRes] = useState<null | { id: string; step: number } | "bad">(null);
+  const [res, setRes] = useState<null | Order | "bad" | "none">(null);
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const clean = id.trim().toUpperCase();
     if (!/^VNK-\d{3,6}$/.test(clean) || phone.replace(/\D/g, "").length < 10) { setRes("bad"); return; }
-    const n = clean.split("-")[1].split("").reduce((a, c) => a + Number(c), 0);
-    setRes({ id: clean, step: n % 5 });
+    const o = getDB().orders.find((x) => x.id === clean);
+    const digits = (v: string) => v.replace(/\D/g, "").slice(-10);
+    setRes(o && (!o.phone || digits(o.phone) === digits(phone)) ? o : "none");
   };
   const field = "w-full border border-black bg-white px-4 py-3.5 text-sm outline-none focus:ring-2 focus:ring-black";
   return (
@@ -100,25 +92,31 @@ export function TrackOrder() {
               <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="98765 43210" className={field} /></label>
             <button className={`${mono} w-full bg-black py-4 text-[11px] font-bold tracking-[0.15em] text-white transition hover:bg-neutral-800`}>Track</button>
             {res === "bad" && <p role="alert" className={`${mono} text-[10px] tracking-[0.1em] text-red-700`}>Check the reference (VNK-####) and a 10 digit phone number.</p>}
+            {res === "none" && <p role="alert" className={`${mono} text-[10px] tracking-[0.1em] text-red-700`}>No order found for that reference and phone number.</p>}
           </form>
           <div>
-            {res && res !== "bad" ? (
+            {res && res !== "bad" && res !== "none" ? (() => {
+              const step = FLOW.indexOf(res.status);
+              return (
               <div>
                 <p className={`${mono} text-[10px] tracking-[0.2em] text-neutral-500`}>Reference</p>
                 <h2 className={`${disp} text-5xl leading-none`}>{res.id}</h2>
-                <p className={`${mono} mt-3 inline-block bg-black px-3 py-1.5 text-[10px] font-bold tracking-[0.15em] text-white`}>{STEPS[res.step]}</p>
+                <p className={`${mono} mt-3 inline-block bg-black px-3 py-1.5 text-[10px] font-bold tracking-[0.15em] text-white`}>{res.status}</p>
+                <p className="mt-4 text-sm text-neutral-700">{itemsText(res)}</p>
+                <p className={`${mono} mt-1 text-[10px] tracking-[0.15em] text-neutral-500`}>Placed {new Date(res.createdAt).toLocaleString("en-IN")}</p>
+                {res.status === "Returned" ? <p className={`${mono} mt-8 border-2 border-black p-4 text-[11px] tracking-[0.15em]`}>This order was returned. Refunds take 3-5 working days.</p> : (
                 <ol className="mt-8 border-l-2 border-black/15">
                   {STEPS.map((s, i) => (
                     <li key={s} className="relative pb-7 pl-8">
-                      <span className={`absolute -left-[9px] top-0.5 size-4 border-2 border-black ${i <= res.step ? "bg-black" : "bg-white"}`} />
-                      <p className={`${mono} text-xs font-bold tracking-[0.15em] ${i > res.step ? "text-neutral-400" : ""}`}>{s}</p>
-                      <p className={`text-sm ${i > res.step ? "text-neutral-300" : "text-neutral-600"}`}>{NOTES[i]}</p>
+                      <span className={`absolute -left-[9px] top-0.5 size-4 border-2 border-black ${i <= step ? "bg-black" : "bg-white"}`} />
+                      <p className={`${mono} text-xs font-bold tracking-[0.15em] ${i > step ? "text-neutral-400" : ""}`}>{s}</p>
+                      <p className={`text-sm ${i > step ? "text-neutral-300" : "text-neutral-600"}`}>{NOTES[i]}</p>
                     </li>
                   ))}
-                </ol>
-                <p className={`${mono} text-[10px] tracking-[0.15em] text-neutral-500`}>Demo tracking. Live courier updates arrive once orders are connected to a backend.</p>
+                </ol>)}
               </div>
-            ) : (
+              );
+            })() : (
               <div className="flex h-full min-h-60 items-center justify-center border border-dashed border-black/25 p-10 text-center">
                 <p className={`${mono} text-[11px] tracking-[0.2em] text-neutral-500`}>Your shipment timeline appears here</p>
               </div>
@@ -132,31 +130,25 @@ export function TrackOrder() {
 }
 
 /* ---------- Shipping ---------- */
-const zones = [
-  ["Chennai metro", "1-2 days", "₹49", "Free over ₹999"],
-  ["Tamil Nadu, Kerala, Karnataka", "2-4 days", "₹79", "Free over ₹999"],
-  ["Maharashtra, Telangana, Delhi NCR", "3-5 days", "₹79", "Free over ₹999"],
-  ["Rest of India", "5-8 days", "₹99", "Free over ₹999"],
-  ["North-East & J&K", "7-10 days", "₹149", "Free over ₹1,999"],
-];
-
 export function Shipping() {
+  const zones = useDB((d) => d.zones);
+  const st = useDB((d) => d.settings);
   return (
     <>
       <Head kicker="Assistance // Domestic only" title="Domestic shipping" note="Pan-India delivery from our Chennai studio. International shipping is not available yet." />
       <Block>
         <div className="mb-14 grid gap-px bg-black/10 sm:grid-cols-3">
-          {[["24h", "Dispatch time", "Orders placed before 4 PM leave the studio the same working day."], ["₹999", "Free shipping", "Cart value above this ships free to most of India."], ["COD", "Cash on delivery", "Available pan-India with a ₹40 handling fee."]].map(([n, t, d]) => (
+          {[["24h", "Dispatch time", "Orders placed before 4 PM leave the studio the same working day."], [`₹${st.freeShip.toLocaleString("en-IN")}`, "Free shipping", "Cart value above this ships free to most of India."], ["COD", "Cash on delivery", `Available pan-India with a ₹${st.codFee} handling fee.`]].map(([n, t, d]) => (
             <div key={t} className="bg-white p-6"><p className={`${disp} text-6xl leading-none`}>{n}</p><p className={`${mono} mt-3 text-[11px] font-bold tracking-[0.15em]`}>{t}</p><p className="mt-2 text-sm text-neutral-600">{d}</p></div>
           ))}
         </div>
         <div className="overflow-x-auto border border-black/15">
           <table className="w-full min-w-[560px] text-left text-sm">
             <thead><tr className={`${mono} border-b-2 border-black text-[10px] tracking-[0.15em]`}>{["Zone", "Delivery", "Shipping fee", "Free shipping"].map((h) => <th key={h} className="px-5 py-3">{h}</th>)}</tr></thead>
-            <tbody>{zones.map((z) => <tr key={z[0]} className="border-b border-black/10 last:border-0">{z.map((c, i) => <td key={i} className={`px-5 py-4 ${i === 0 ? "font-bold" : ""}`}>{c}</td>)}</tr>)}</tbody>
+            <tbody>{zones.map((z) => <tr key={z.id} className="border-b border-black/10 last:border-0"><td className="px-5 py-4 font-bold">{z.name}</td><td className="px-5 py-4">{z.days}</td><td className="px-5 py-4">₹{z.fee}</td><td className="px-5 py-4">Free over ₹{z.freeAbove.toLocaleString("en-IN")}</td></tr>)}</tbody>
           </table>
         </div>
-        <p className={`${mono} mt-4 text-[10px] tracking-[0.15em] text-neutral-500`}>Delivery windows are estimates from dispatch and exclude Sundays, public holidays and monsoon delays. Rates shown are sample values.</p>
+        <p className={`${mono} mt-4 text-[10px] tracking-[0.15em] text-neutral-500`}>Delivery windows are estimates from dispatch and exclude Sundays, public holidays and monsoon delays.</p>
         <div className="mt-6"><a href={go("/track")} className={`${mono} inline-block bg-black px-6 py-3.5 text-[11px] font-bold tracking-[0.15em] text-white`}>Track an order</a></div>
       </Block>
       <Help />
