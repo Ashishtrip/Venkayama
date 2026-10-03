@@ -211,7 +211,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-white px-6 text-center text-black" role="status" aria-live="polite">
           <span>
             {stage === "loading" ? (
-              <OnionLogo className="h-40" sway={false} />
+              <OnionLogo className="h-40" />
             ) : (
               <OnionLogo className="h-40 md:h-52" />
             )}

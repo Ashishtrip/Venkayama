@@ -61,7 +61,7 @@ function Header({ path }: { path: string }) {
       </div>
       <div className="mx-auto flex h-[60px] max-w-[1500px] items-center justify-between px-6">
         <a href={go("/")} className="flex items-center gap-2.5">
-          <OnionLogo className="h-9" sway={false} />
+          <OnionLogo className="h-9" />
           <span className={`${disp} text-xl leading-[0.85] tracking-wide`}>
             Venkayam<br /><span className="text-[11px] tracking-[0.3em]">India</span>
           </span>

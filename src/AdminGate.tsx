@@ -69,7 +69,7 @@ export default function AdminGate() {
       </div>
       <div className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
-          <span className="mb-6 inline-block rounded bg-white p-2 lg:hidden"><OnionLogo className="h-14" sway={false} /></span>
+          <span className="mb-6 inline-block rounded bg-white p-2 lg:hidden"><OnionLogo className="h-14" /></span>
           <p className={`${mono} mb-3 text-[10px] tracking-[0.25em] text-white/50`}>Staff only</p>
           <h1 className={`${disp} text-6xl leading-[0.9]`}>Sign in to the control room</h1>
           <form onSubmit={(ev) => { ev.preventDefault(); emailAuth(false); }} className="mt-10 space-y-3">

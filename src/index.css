@@ -13,24 +13,18 @@ html { scroll-behavior: smooth; }
 body { background: var(--color-paper); color: var(--color-ink); font-family: var(--font-sans); }
 ::selection { background: #0a0a0a; color: #fff; }
 
-/* whole-logo wiggle */
-@keyframes onion-sway {
-  0%, 100% { transform: rotate(-2.5deg) translateY(0); }
-  50% { transform: rotate(2.5deg) translateY(-4px); }
-}
 /* tip wiggle: slow, smooth, pivoting at the neck */
 @keyframes onion-tip {
   0%, 100% { transform: rotate(-5deg); }
   50% { transform: rotate(6deg); }
 }
-.onion-sway { animation: onion-sway 5s ease-in-out infinite; transform-origin: 50% 90%; }
 .onion-tip { animation: onion-tip 3.4s cubic-bezier(.45,.05,.55,.95) infinite; transform-origin: 51% 37.3%; will-change: transform; }
 
 @keyframes marquee { to { transform: translateX(-50%); } }
 .marquee { animation: marquee 40s linear infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  .onion-sway, .onion-tip, .marquee { animation: none; }
+  .onion-tip, .marquee { animation: none; }
 }
 
 /* scroll fade-emerge */

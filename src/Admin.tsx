@@ -441,7 +441,7 @@ export default function Admin({ onSignOut, userEmail }: { onSignOut?: () => void
       <aside className="bg-black text-white lg:sticky lg:top-0 lg:h-screen">
         <div className="flex items-center justify-between gap-3 p-5 lg:block">
           <a href="#/" className="flex items-end gap-3">
-            <span className="rounded bg-white p-1.5"><OnionLogo className="h-12" sway={false} /></span>
+            <span className="rounded bg-white p-1.5"><OnionLogo className="h-12" /></span>
             <span className={`${disp} text-2xl leading-[0.9]`}>Venkayam<br /><span className="text-xs tracking-[0.3em]">Control room</span></span>
           </a>
           <p className={`${mono} mt-6 hidden text-[10px] leading-5 tracking-[0.15em] text-white/50 lg:block`}>
