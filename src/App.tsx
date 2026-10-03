@@ -42,6 +42,9 @@ const tabs = [
   ["acc", "ACCESSORIES"],
 ];
 
+const slug = (p: { name: string }) => p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+const href = (p: { name: string }) => go(`/product/${slug(p)}`);
+
 const inr = (n: number) => "₹" + n.toLocaleString("en-IN");
 
 function Arrow({ invert = false }: { invert?: boolean }) {
@@ -201,15 +204,16 @@ function ProductCard({ p }: { p: (typeof products)[number] }) {
   };
   return (
     <article className="group flex flex-col border border-black/10 bg-white">
-      <div className="relative aspect-[4/5] overflow-hidden bg-neutral-200">
+      <a href={href(p)} aria-label={`View ${p.name}`} className="relative block aspect-[4/5] overflow-hidden bg-neutral-200">
         <img src={A(p.img)} alt={p.name} className="absolute inset-0 size-full object-cover grayscale transition duration-700 group-hover:scale-105" />
         {p.emblem && <img src={A(p.emblem)} alt="" className="absolute left-1/2 top-[48%] w-1/4 -translate-x-1/2 -translate-y-1/2 mix-blend-multiply" />}
         <span className={`${mono} absolute left-3 top-3 bg-white px-2 py-1 text-[9px] font-bold tracking-[0.1em]`}>{p.tag}</span>
         <span className={`${mono} absolute bottom-3 left-3 bg-black px-2 py-1 text-[9px] font-bold tracking-[0.1em] text-white`}>{p.badge}</span>
-      </div>
+        <span className={`${mono} absolute bottom-3 right-3 bg-white px-2 py-1 text-[9px] font-bold tracking-[0.1em] opacity-0 transition group-hover:opacity-100`}>View →</span>
+      </a>
       <div className="flex flex-1 flex-col p-5">
         <div className={`${mono} mb-2 flex justify-between text-[9px] tracking-[0.12em] text-neutral-500`}><span>{p.badge}</span><span className="font-bold text-black">{p.stock}</span></div>
-        <h3 className="text-[15px] font-extrabold uppercase leading-snug">{p.name}</h3>
+        <h3 className="text-[15px] font-extrabold uppercase leading-snug"><a href={href(p)} className="hover:underline">{p.name}</a></h3>
         <div className="mt-3 flex items-center gap-3">
           <span className={`${mono} text-base font-bold`}>{inr(p.price)}</span>
           <span className={`${mono} text-xs text-neutral-400 line-through`}>{inr(p.was)}</span>
@@ -232,6 +236,133 @@ function ProductCard({ p }: { p: (typeof products)[number] }) {
         </div>
       </div>
     </article>
+  );
+}
+
+const details: Record<string, { blurb: string; specs: [string, string][]; fit: string }> = {
+  tees: { blurb: "Cut boxy and dropped at the shoulder, pre-shrunk and garment-washed so the fit holds after the first wash. Screen-printed in Chennai with plastisol ink that cracks beautifully with age.", fit: "Oversized. Take your usual size for the intended drape, size down for a regular fit.", specs: [["Fabric", "100% combed cotton, 260-280 GSM"], ["Print", "Plastisol screen print"], ["Finish", "Pre-shrunk, enzyme washed"], ["Made in", "Tiruppur, India"]] },
+  hoodies: { blurb: "A 450 GSM brushed-back terry hoodie with a double-layered hood, ribbed cuffs and the onion monogram embroidered at the chest. Heavy enough to stand on its own.", fit: "Relaxed with a slightly cropped body. Size up for a longer, oversized look.", specs: [["Fabric", "100% cotton terry, 450 GSM"], ["Branding", "Embroidered monogram"], ["Hood", "Double layered, flat drawcord"], ["Made in", "Tiruppur, India"]] },
+  caps: { blurb: "A structured five-panel cap in washed cotton canvas with a tonal embroidered onion, curved brim and a brass-buckle adjustable strap.", fit: "One size. The strap fits head circumference of 54 to 62 cm.", specs: [["Fabric", "Washed cotton canvas"], ["Crown", "Structured, 5-panel"], ["Closure", "Adjustable brass buckle"], ["Made in", "Tiruppur, India"]] },
+  acc: { blurb: "A 16 oz duck canvas tote with reinforced stitching and a screen-printed onion emblem. Carries a laptop and a week of groceries without complaint.", fit: "One size. 38 cm wide, 40 cm tall, 12 cm gusset, 28 cm handle drop.", specs: [["Fabric", "16 oz duck canvas"], ["Capacity", "Approx. 18 litres"], ["Handles", "Double-stitched cotton webbing"], ["Made in", "Tiruppur, India"]] },
+};
+
+function ProductPage({ id }: { id: string }) {
+  const p = products.find((x) => slug(x) === id);
+  const { add } = useCart();
+  const [size, setSize] = useState("");
+  const [warn, setWarn] = useState(false);
+  const [qty, setQty] = useState(1);
+  const [open, setOpen] = useState(0);
+  useEffect(() => { setSize(""); setWarn(false); setQty(1); }, [id]);
+  if (!p) {
+    return (
+      <section className="px-6 pb-24 pt-[170px]"><div className="mx-auto max-w-[1500px]">
+        <h1 className={`${disp} text-6xl`}>Piece not found</h1>
+        <div className="mt-8"><Cta to="/shop" label="Back to shop" /></div>
+      </div></section>
+    );
+  }
+  const d = details[p.cat];
+  const sizes = sizesFor(p.cat);
+  const one = sizes.length === 1;
+  const chosen = one ? sizes[0][0] : size;
+  const act = (buyNow: boolean) => {
+    if (!chosen) { setWarn(true); return; }
+    for (let i = 0; i < qty; i++) add({ name: p.name, img: p.img, size: chosen, price: p.price }, buyNow && i === qty - 1);
+  };
+  const more = [...products.filter((x) => x.cat === p.cat && x !== p), ...products.filter((x) => x.cat !== p.cat)].slice(0, 3);
+  const acc: [string, string][] = [
+    ["Details", d.blurb],
+    ["Fit & sizing", d.fit],
+    ["Shipping & returns", "Free shipping above ₹999, otherwise ₹79. Dispatched from Chennai within 24 hours. COD available pan-India. 7-day easy returns on unworn pieces."],
+  ];
+  return (
+    <>
+      <section className="px-6 pb-16 pt-[130px]">
+        <div className="mx-auto max-w-[1500px]">
+          <nav className={`${mono} mb-6 flex flex-wrap gap-2 text-[10px] tracking-[0.2em] text-neutral-500`}>
+            <a href={go("/shop")} className="hover:text-black">Shop</a><span>/</span>
+            <a href={go(`/shop/${p.cat}`)} className="hover:text-black">{tabs.find(([k]) => k === p.cat)?.[1]}</a><span>/</span>
+            <span className="text-black">{p.tag}</span>
+          </nav>
+          <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
+            <div className="relative aspect-[4/5] overflow-hidden bg-neutral-200 lg:sticky lg:top-28 lg:self-start">
+              <img src={A(p.img)} alt={p.name} className="absolute inset-0 size-full object-cover grayscale" />
+              {p.emblem && <img src={A(p.emblem)} alt="" className="absolute left-1/2 top-[48%] w-1/4 -translate-x-1/2 -translate-y-1/2 mix-blend-multiply" />}
+              <span className={`${mono} absolute left-4 top-4 bg-white px-3 py-1.5 text-[10px] font-bold tracking-[0.1em]`}>{p.tag}</span>
+              <span className={`${mono} absolute bottom-4 left-4 bg-black px-3 py-1.5 text-[10px] font-bold tracking-[0.1em] text-white`}>{p.badge}</span>
+            </div>
+            <div>
+              <p className={`${mono} mb-3 flex justify-between text-[10px] tracking-[0.2em] text-neutral-500`}><span>{p.badge}</span><span className="font-bold text-black">{p.stock}</span></p>
+              <h1 className={`${disp} text-[clamp(2.2rem,4.5vw,4.2rem)] leading-[0.95]`}>{p.name}</h1>
+              <div className="mt-5 flex items-center gap-4">
+                <span className={`${mono} text-2xl font-bold`}>{inr(p.price)}</span>
+                <span className={`${mono} text-sm text-neutral-400 line-through`}>{inr(p.was)}</span>
+                <span className={`${mono} bg-neutral-100 px-2.5 py-1 text-[10px] font-bold tracking-wider`}>{p.off}</span>
+              </div>
+              <p className="mt-6 max-w-xl text-[15px] leading-relaxed text-neutral-700">{d.blurb}</p>
+
+              <div className="mt-8">
+                <p className={`${mono} mb-3 flex justify-between text-[10px] font-bold tracking-[0.15em] ${warn && !chosen ? "text-red-700" : "text-neutral-500"}`}>
+                  <span>{warn && !chosen ? "Select a size" : "Size"}</span>{chosen && <span className="text-black">{chosen}</span>}
+                </p>
+                <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Size">
+                  {sizes.map(([s, ok]) => (
+                    <button key={s} type="button" role="radio" aria-checked={chosen === s} disabled={!ok} onClick={() => { setSize(s); setWarn(false); }}
+                      className={`${mono} min-w-14 border px-4 py-3 text-[11px] font-bold tracking-wider transition ${!ok ? "cursor-not-allowed border-black/15 text-neutral-300 line-through" : chosen === s ? "border-black bg-black text-white" : "border-black hover:bg-neutral-200"}`}>{s}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-6 flex items-center gap-3">
+                <div className="flex items-center border border-black">
+                  <button type="button" aria-label="Decrease quantity" onClick={() => setQty((q) => Math.max(1, q - 1))} className="size-12 text-lg hover:bg-neutral-200">−</button>
+                  <span className={`${mono} w-10 text-center text-sm font-bold tabular-nums`}>{qty}</span>
+                  <button type="button" aria-label="Increase quantity" onClick={() => setQty((q) => Math.min(9, q + 1))} className="size-12 text-lg hover:bg-neutral-200">+</button>
+                </div>
+                <p className={`${mono} text-[10px] tracking-[0.15em] text-neutral-500`}>Total {inr(p.price * qty)}</p>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <button onClick={() => act(false)} className={`${mono} border border-black py-4 text-[11px] font-bold tracking-[0.15em] transition hover:bg-black hover:text-white`}>Add to cart</button>
+                <button onClick={() => act(true)} className={`${mono} bg-black py-4 text-[11px] font-bold tracking-[0.15em] text-white transition hover:bg-neutral-700`}>Buy now</button>
+              </div>
+
+              <div className="mt-10 border-t-2 border-black">
+                {acc.map(([t, body], i) => (
+                  <div key={t} className="border-b border-black/15">
+                    <button type="button" aria-expanded={open === i} onClick={() => setOpen(open === i ? -1 : i)} className={`${mono} flex w-full items-center justify-between py-4 text-left text-[11px] font-bold tracking-[0.15em]`}>
+                      {t}<span className="text-lg leading-none">{open === i ? "−" : "+"}</span>
+                    </button>
+                    {open === i && <p className="pb-5 text-sm leading-relaxed text-neutral-700">{body}</p>}
+                  </div>
+                ))}
+              </div>
+              <dl className="mt-8 grid grid-cols-2 gap-px bg-black/10">
+                {d.specs.map(([k, v]) => (
+                  <div key={k} className="bg-white p-4">
+                    <dt className={`${mono} text-[9px] tracking-[0.2em] text-neutral-500`}>{k}</dt>
+                    <dd className="mt-1 text-sm font-semibold">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-black/10 bg-neutral-50 px-6 py-20">
+        <div className="mx-auto max-w-[1500px]">
+          <div className="mb-10 flex items-end justify-between gap-4">
+            <div>
+              <p className={`${mono} mb-2 text-[10px] tracking-[0.25em] text-neutral-500`}>Picked from the archive</p>
+              <h2 className={`${disp} text-[clamp(2.5rem,6vw,5rem)] leading-[0.9]`}>Recommended for you</h2>
+            </div>
+            <a href={go("/shop")} className={`${mono} hidden text-[11px] font-bold tracking-[0.15em] underline underline-offset-4 sm:block`}>View all</a>
+          </div>
+          <ProductGrid items={more} />
+        </div>
+      </section>
+    </>
   );
 }
 
@@ -596,9 +727,9 @@ export default function App() {
   if (page === "admin") return <AdminGate />;
   return (
     <CartProvider>
-      <Header path={path} />
+      <Header path={page === "product" ? "/shop" : path} />
       <main key={path + sub}>
-        {page === "shop" ? <Shop cat={tabs.some(([k]) => k === sub) ? sub : "all"} /> : page === "drops" ? <Drops /> : page === "about" ? <About /> : <Home />}
+        {page === "shop" ? <Shop cat={tabs.some(([k]) => k === sub) ? sub : "all"} /> : page === "product" ? <ProductPage id={sub} /> : page === "drops" ? <Drops /> : page === "about" ? <About /> : <Home />}
       </main>
       <Footer />
     </CartProvider>
