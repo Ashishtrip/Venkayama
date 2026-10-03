@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import OnionLogo from "./components/OnionLogo";
 import AdminGate from "./AdminGate";
+import { CartProvider, useCart } from "./Cart";
 
 const A = (f: string) => `/assets/${f}`;
 const mono = "font-mono uppercase";
@@ -48,6 +49,7 @@ function Arrow({ invert = false }: { invert?: boolean }) {
 }
 
 function Header({ path }: { path: string }) {
+  const { count, open } = useCart();
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-black/10 bg-white/95 backdrop-blur">
       <div className={`${mono} flex h-7 items-center justify-center bg-black px-4 text-[10px] tracking-[0.12em] text-white`}>
@@ -67,8 +69,8 @@ function Header({ path }: { path: string }) {
             </a>
           ))}
         </nav>
-        <button className={`${mono} border border-black px-3 py-1.5 text-[11px] font-bold tracking-widest transition hover:bg-black hover:text-white`}>
-          Bag [02]
+        <button onClick={open} className={`${mono} border border-black px-3 py-1.5 text-[11px] font-bold tracking-widest transition hover:bg-black hover:text-white`}>
+          Bag [{String(count).padStart(2, "0")}]
         </button>
       </div>
       <nav className={`${mono} flex justify-around border-t border-black/10 py-2 text-[10px] font-bold tracking-[0.12em] md:hidden`}>
@@ -183,29 +185,61 @@ function Departments() {
   );
 }
 
+const sizesFor = (cat: string): [string, boolean][] =>
+  cat === "caps" || cat === "acc"
+    ? [["One size", true]]
+    : [["S", true], ["M", true], ["L", true], ["XL", true], ["XXL", cat !== "hoodies"]];
+
+function ProductCard({ p }: { p: (typeof products)[number] }) {
+  const { add } = useCart();
+  const sizes = sizesFor(p.cat);
+  const [size, setSize] = useState(sizes.length === 1 ? sizes[0][0] : "");
+  const [warn, setWarn] = useState(false);
+  const act = (buyNow: boolean) => {
+    if (!size) { setWarn(true); return; }
+    add({ name: p.name, img: p.img, size, price: p.price }, buyNow);
+  };
+  return (
+    <article className="group flex flex-col border border-black/10 bg-white">
+      <div className="relative aspect-[4/5] overflow-hidden bg-neutral-200">
+        <img src={A(p.img)} alt={p.name} className="absolute inset-0 size-full object-cover grayscale transition duration-700 group-hover:scale-105" />
+        {p.emblem && <img src={A(p.emblem)} alt="" className="absolute left-1/2 top-[48%] w-1/4 -translate-x-1/2 -translate-y-1/2 mix-blend-multiply" />}
+        <span className={`${mono} absolute left-3 top-3 bg-white px-2 py-1 text-[9px] font-bold tracking-[0.1em]`}>{p.tag}</span>
+        <span className={`${mono} absolute bottom-3 left-3 bg-black px-2 py-1 text-[9px] font-bold tracking-[0.1em] text-white`}>{p.badge}</span>
+      </div>
+      <div className="flex flex-1 flex-col p-5">
+        <div className={`${mono} mb-2 flex justify-between text-[9px] tracking-[0.12em] text-neutral-500`}><span>{p.badge}</span><span className="font-bold text-black">{p.stock}</span></div>
+        <h3 className="text-[15px] font-extrabold uppercase leading-snug">{p.name}</h3>
+        <div className="mt-3 flex items-center gap-3">
+          <span className={`${mono} text-base font-bold`}>{inr(p.price)}</span>
+          <span className={`${mono} text-xs text-neutral-400 line-through`}>{inr(p.was)}</span>
+          <span className={`${mono} ml-auto bg-neutral-100 px-2 py-1 text-[9px] font-bold tracking-wider`}>{p.off}</span>
+        </div>
+        <div className="mt-4">
+          <p className={`${mono} mb-2 flex justify-between text-[9px] font-bold tracking-[0.15em] ${warn && !size ? "text-red-700" : "text-neutral-500"}`}>
+            <span>{warn && !size ? "Select a size" : "Size"}</span>{size && <span className="text-black">{size}</span>}
+          </p>
+          <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Size">
+            {sizes.map(([s, ok]) => (
+              <button key={s} type="button" role="radio" aria-checked={size === s} disabled={!ok} onClick={() => { setSize(s); setWarn(false); }}
+                className={`${mono} min-w-10 border px-3 py-2 text-[10px] font-bold tracking-wider transition ${!ok ? "cursor-not-allowed border-black/15 text-neutral-300 line-through" : size === s ? "border-black bg-black text-white" : "border-black hover:bg-neutral-200"}`}>{s}</button>
+            ))}
+          </div>
+        </div>
+        <div className="mt-auto grid grid-cols-2 gap-2 pt-5">
+          <button onClick={() => act(false)} className={`${mono} border border-black py-3 text-[10px] font-bold tracking-[0.12em] transition hover:bg-black hover:text-white`}>Add to cart</button>
+          <button onClick={() => act(true)} className={`${mono} bg-black py-3 text-[10px] font-bold tracking-[0.12em] text-white transition hover:bg-neutral-700`}>Buy now</button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function ProductGrid({ items }: { items: typeof products }) {
   return (
     <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((p) => (
-            <article key={p.name} className="group border border-black/10 bg-white">
-              <div className="relative aspect-[4/5] overflow-hidden bg-neutral-200">
-                <img src={A(p.img)} alt={p.name} className="absolute inset-0 size-full object-cover grayscale transition duration-700 group-hover:scale-105" />
-                {p.emblem && <img src={A(p.emblem)} alt="" className="absolute left-1/2 top-[48%] w-1/4 -translate-x-1/2 -translate-y-1/2 mix-blend-multiply" />}
-                <span className={`${mono} absolute left-3 top-3 bg-white px-2 py-1 text-[9px] font-bold tracking-[0.1em]`}>{p.tag}</span>
-                <span className={`${mono} absolute bottom-3 left-3 bg-black px-2 py-1 text-[9px] font-bold tracking-[0.1em] text-white`}>{p.badge}</span>
-              </div>
-              <div className="p-5">
-                <div className={`${mono} mb-2 flex justify-between text-[9px] tracking-[0.12em] text-neutral-500`}><span>{p.badge}</span><span className="font-bold text-black">{p.stock}</span></div>
-                <h3 className="text-[15px] font-extrabold uppercase leading-snug">{p.name}</h3>
-                <div className="mt-3 flex items-center gap-3">
-                  <span className={`${mono} text-base font-bold`}>{inr(p.price)}</span>
-                  <span className={`${mono} text-xs text-neutral-400 line-through`}>{inr(p.was)}</span>
-                  <span className={`${mono} ml-auto bg-neutral-100 px-2 py-1 text-[9px] font-bold tracking-wider`}>{p.off}</span>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
+      {items.map((p) => <ProductCard key={p.name} p={p} />)}
+    </div>
   );
 }
 
@@ -454,7 +488,7 @@ function Drops() {
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {products.map((p, i) => (
               <div key={p.name}>
-                <ProductGrid items={[p]} />
+                <ProductCard p={p} />
                 <div className="mt-2 border border-black/10 bg-white px-4 py-3">
                   <div className={`${mono} mb-1 flex justify-between text-[9px] font-bold tracking-wider`}><span>Claimed</span><span>{SOLD[i]}/150</span></div>
                   <div className="h-2 bg-neutral-200"><div className={`h-full ${SOLD[i] > 130 ? "bg-red-700" : "bg-black"}`} style={{ width: `${(SOLD[i] / 150) * 100}%` }} /></div>
@@ -561,12 +595,12 @@ export default function App() {
   useScrollReveal(page === "admin" ? "" : path + sub);
   if (page === "admin") return <AdminGate />;
   return (
-    <div>
+    <CartProvider>
       <Header path={path} />
       <main key={path + sub}>
         {page === "shop" ? <Shop cat={tabs.some(([k]) => k === sub) ? sub : "all"} /> : page === "drops" ? <Drops /> : page === "about" ? <About /> : <Home />}
       </main>
       <Footer />
-    </div>
+    </CartProvider>
   );
 }

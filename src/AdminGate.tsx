@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import Admin from "./Admin";
 import OnionLogo from "./components/OnionLogo";
-import { ADMIN_EMAILS, supabase } from "./lib/supabase";
+import { ADMIN_EMAILS, getSupabase } from "./lib/supabase";
 
 const mono = "font-mono uppercase";
 const disp = "font-display uppercase";
@@ -14,18 +14,18 @@ export default function AdminGate() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    getSupabase().auth.getSession().then(({ data }) => {
       setSession(data.session);
       setReady(true);
     });
-    const { data } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    const { data } = getSupabase().auth.onAuthStateChange((_e, s) => setSession(s));
     return () => data.subscription.unsubscribe();
   }, []);
 
   const signIn = async (provider: "google" | "apple") => {
     setBusy(provider);
     setError("");
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error } = await getSupabase().auth.signInWithOAuth({
       provider,
       options: { redirectTo: `${window.location.origin}${window.location.pathname}#/admin` },
     });
@@ -40,7 +40,7 @@ export default function AdminGate() {
   const email = session?.user.email?.toLowerCase() ?? "";
   const allowed = !!session && (ADMIN_EMAILS.length === 0 || ADMIN_EMAILS.map((e) => e.toLowerCase()).includes(email));
 
-  if (allowed) return <Admin onSignOut={() => supabase.auth.signOut()} userEmail={email} />;
+  if (allowed) return <Admin onSignOut={() => getSupabase().auth.signOut()} userEmail={email} />;
 
   return (
     <div className="grid min-h-screen bg-black text-white lg:grid-cols-2">
@@ -66,7 +66,7 @@ export default function AdminGate() {
           </div>
           {session && !allowed && (
             <p className={`${mono} mt-5 border border-red-500 p-3 text-[10px] leading-5 tracking-wider text-red-400`}>
-              {email} is not authorised. <button className="underline" onClick={() => supabase.auth.signOut()}>Sign out</button>
+              {email} is not authorised. <button className="underline" onClick={() => getSupabase().auth.signOut()}>Sign out</button>
             </p>
           )}
           {error && <p className={`${mono} mt-5 text-[10px] leading-5 tracking-wider text-red-400`}>{error}</p>}

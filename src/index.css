@@ -46,3 +46,5 @@ body { background: var(--color-paper); color: var(--color-ink); font-family: var
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; filter: none; transition: none; }
 }
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
