@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import OnionLogo from "./components/OnionLogo";
 import AdminGate from "./AdminGate";
+import { Lookbook, TrackOrder, Shipping, Returns, SizeMatrix } from "./Pages";
 import { CartProvider, useCart } from "./Cart";
 
 const A = (f: string) => `/assets/${f}`;
@@ -421,8 +422,8 @@ function Manifesto() {
 
 function Footer() {
   const cols: [string, string[]][] = [
-    ["Navigation", ["Shop all archive|/shop", "Latest drops|/drops", "Lookbook 2024|/drops", "Manifesto|/about"]],
-    ["Assistance", ["Track order|/about", "Domestic shipping|/about", "Returns & exchanges|/about", "Size matrix|/about"]],
+    ["Navigation", ["Shop all archive|/shop", "Latest drops|/drops", "Lookbook 2026|/lookbook", "Manifesto|/about"]],
+    ["Assistance", ["Track order|/track", "Domestic shipping|/shipping", "Returns & exchanges|/returns", "Size matrix|/sizes"]],
   ];
   return (
     <footer className="bg-black text-white">
@@ -729,7 +730,7 @@ export default function App() {
     <CartProvider>
       <Header path={page === "product" ? "/shop" : path} />
       <main key={path + sub}>
-        {page === "shop" ? <Shop cat={tabs.some(([k]) => k === sub) ? sub : "all"} /> : page === "product" ? <ProductPage id={sub} /> : page === "drops" ? <Drops /> : page === "about" ? <About /> : <Home />}
+        {page === "shop" ? <Shop cat={tabs.some(([k]) => k === sub) ? sub : "all"} /> : page === "lookbook" ? <Lookbook /> : page === "track" ? <TrackOrder /> : page === "shipping" ? <Shipping /> : page === "returns" ? <Returns /> : page === "sizes" ? <SizeMatrix /> : page === "product" ? <ProductPage id={sub} /> : page === "drops" ? <Drops /> : page === "about" ? <About /> : <Home />}
       </main>
       <Footer />
     </CartProvider>
