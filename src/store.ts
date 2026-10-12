@@ -21,7 +21,7 @@ export type DB = { products: Product[]; orders: Order[]; promos: Promo[]; zones:
 
 export const CATS: [string, string][] = [["tees", "Tees"], ["hoodies", "Hoodies"], ["caps", "Caps"], ["acc", "Accessories"]];
 export const catLabel = (c: string) => CATS.find(([k]) => k === c)?.[1] ?? c;
-export const sizeKeys = (cat: string) => (cat === "caps" || cat === "acc" ? ["One size"] : ["S", "M", "L", "XL", "XXL"]);
+export const sizeKeys = (cat: string) => (cat === "caps" || cat === "acc" ? ["One size"] : cat === "tees" ? ["XS", "S", "M", "L", "XL"] : ["S", "M", "L", "XL", "XXL"]);
 export const IMAGES = ["f1497.png", "2e222.png", "9bdff.png", "79b1c.png", "83098.png", "62447.png", "99450.png", "ce1cd.png", "37da8.png", "237a4.png"];
 export const imgSrc = (i: string) => (/^(https?:|data:|\/)/.test(i) ? i : `/assets/${i}`);
 export const totalStock = (p: Product) => Object.values(p.sizes).reduce((a, b) => a + b, 0);
@@ -44,12 +44,45 @@ const mk = (sku: string, name: string, cat: string, price: number, was: number, 
 
 function seed(): DB {
   const products: Product[] = [
-    mk("TEE-004", "THALAIVAR TRIBUTE 280 GSM OVERSIZED TEE", "tees", 1499, 2299, "280 GSM", "EDITION: DROP 04", "f1497.png", { S: 22, M: 41, L: 38, XL: 14, XXL: 5 }, 312, 12, 138),
     mk("HOD-001", "VENKAYAM ONION MONOGRAM HOODIE (CHARCOAL)", "hoodies", 2999, 3999, "450 GSM TERRY", "FLAGSHIP PIECE", "2e222.png", { S: 6, M: 9, L: 11, XL: 3, XXL: 0 }, 188, 8, 112, { onion: true }),
-    mk("TEE-007", "MADRAS NOIR ACID WASH GRAPHIC TEE", "tees", 1699, 2499, "ACID WASH 260 GSM", "VINTAGE WASH", "9bdff.png", { S: 18, M: 26, L: 20, XL: 9, XXL: 7 }, 241, 12, 97),
-    mk("TEE-009", "KOLLYWOOD RETRO CLUB TEE", "tees", 1599, 2199, "OFF-WHITE HEAVY", "COLLAB EDITION", "79b1c.png", { S: 30, M: 44, L: 36, XL: 21, XXL: 12 }, 167, 12, 74),
     mk("CAP-002", "VENKAYAM STREETWEAR 5-PANEL CAP", "caps", 999, 1499, "COTTON CANVAS", "HEADWEAR SPEC", "83098.png", { "One size": 64 }, 402, 20, 120),
     mk("TOT-003", "HEAVYWEIGHT CANVAS ONION TOTE BAG", "acc", 799, 1199, "16 OZ DUCK CANVAS", "DAILY CARRY", "62447.png", { "One size": 15 }, 276, 20, 88, { emblem: "f6362.png" }),
+    mk("GEN-001", "FREAK MODE", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/01.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 37, 8, 13, { description: "Playful streetwear energy with a bold character graphic. Made for the ones who keep their own vibe.", drop: true }),
+    mk("GEN-002", "LOWKEY DRIP", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/02.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 74, 8, 26, { description: "Minimal effort, maximum drip. A clean vintage-wash look for everyday Gen-Z street style.", drop: true }),
+    mk("GEN-003", "SPIDEY STATE", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/03.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 21, 8, 39, { description: "Your Spidey mood, upgraded. A bold graphic tee built for superhero fans and streetwear fits.", drop: true }),
+    mk("GEN-004", "MUTANT ENERGY", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/04.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 58, 8, 12, { description: "Raw mutant energy with a powerful graphic aesthetic. Stand out without trying too hard.", drop: true }),
+    mk("GEN-005", "SUPERHUMAN", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/05.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 5, 8, 25, { description: "Hero energy, clean graphic. A statement piece for anyone who likes their style bold and iconic.", drop: false }),
+    mk("GEN-006", "DARK SIGNAL", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/06.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 42, 8, 38, { description: "Dark, mysterious and graphic-heavy. Built for late-night fits and a strong streetwear mood.", drop: false }),
+    mk("GEN-007", "SPIDERVERSE", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/07.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 79, 8, 11, { description: "Enter the web era. A statement Spider-inspired design made to bring comic energy into everyday fits.", drop: false }),
+    mk("GEN-008", "NO LIMITS", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/08.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 26, 8, 24, { description: "No Limits, just your vibe. A bold statement tee for independent minds who do things their own way.", drop: false }),
+    mk("GEN-009", "WEIRD FLEX", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/09.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 63, 8, 37, { description: "Weird is the flex. Colorful oversized typography for anyone who proudly owns their individuality.", drop: false }),
+    mk("GEN-010", "RISK TAKER", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/10.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 10, 8, 10, { description: "Take the chance. A dice-inspired statement tee with a fearless, risk-taking attitude.", drop: false }),
+    mk("GEN-011", "ALIENATED", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/11.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 47, 8, 23, { description: "Out-of-this-world energy. A futuristic alien graphic for a playful, unconventional streetwear look.", drop: false }),
+    mk("GEN-012", "AURA MODE", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/12.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 84, 8, 36, { description: "Turn your aura on. Fiery graphic energy designed to make a simple fit feel instantly louder.", drop: false }),
+    mk("GEN-013", "CEO ENERGY", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/13.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 31, 8, 9, { description: "CEO Energy only. A confident statement graphic for creators, dreamers and future bosses.", drop: false }),
+    mk("GEN-014", "DISCIPLINE", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/14.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 68, 8, 22, { description: "Discipline over everything. A dark Batman-inspired statement piece built around focus and mindset.", drop: false }),
+    mk("GEN-015", "FUNK MODE", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/15.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 15, 8, 35, { description: "Funk Mode activated. Bright, playful typography with an easy-going Gen-Z attitude.", drop: false }),
+    mk("GEN-016", "VEL VIBE", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/16.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 52, 8, 8, { description: "Desi energy with a modern streetwear edge. A bold Muruga-inspired graphic with cultural character.", drop: false }),
+    mk("GEN-017", "KALI ENERGY", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/17.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 89, 8, 21, { description: "Raw folk energy. A striking traditional-mask inspired graphic designed to make your fit unforgettable.", drop: false }),
+    mk("GEN-018", "DARK KNIGHT", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/18.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 36, 8, 34, { description: "Dark Knight energy in a clean vintage wash. Minimal from the front, powerful graphic presence.", drop: false }),
+    mk("GEN-019", "WEB MODE", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/19.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 73, 8, 7, { description: "Web Mode on. A Spider-inspired front-and-back design made for statement streetwear fits.", drop: false }),
+    mk("GEN-020", "BAT SIGNAL", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/20.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 20, 8, 20, { description: "Classic bat energy, modern wash. A minimal emblem tee that works with almost any casual fit.", drop: false }),
+    mk("GEN-021", "ROLL THE DICE", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/21.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 57, 8, 33, { description: "Life is a roll of the dice. A playful graphic tee for risk-takers and spontaneous vibes.", drop: false }),
+    mk("GEN-022", "HERO MODE", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/22.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 4, 8, 6, { description: "Hero Mode activated. A clean comic-inspired face graphic for a simple but standout look.", drop: false }),
+    mk("GEN-023", "DUALITY", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/23.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 41, 8, 19, { description: "Two sides, one vibe. A split graphic design with a cinematic, collage-inspired aesthetic.", drop: false }),
+    mk("GEN-024", "DUDE ERA", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/24.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 78, 8, 32, { description: "Dude Era unlocked. A bold retro badge for relaxed fits, college days and everyday streetwear.", drop: false }),
+    mk("GEN-025", "FUNK RELOADED", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/25.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 25, 8, 5, { description: "Funk Reloaded. A louder red-wash version of the playful Oh Funk statement graphic.", drop: false }),
+    mk("GEN-026", "BAT ATTACK", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/26.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 62, 8, 18, { description: "Bat Attack. A dramatic Batman-inspired graphic built to give your outfit a darker edge.", drop: false }),
+    mk("GEN-027", "SAVAGE KNIGHT", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/27.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 9, 8, 31, { description: "Savage Knight energy. A roaring Batman-inspired graphic for bold, aggressive streetwear styling.", drop: false }),
+    mk("GEN-028", "DUDE DRIP", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/28.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 46, 8, 4, { description: "Dude Drip. A purple-and-yellow retro badge that keeps the look fun, simple and confident.", drop: false }),
+    mk("GEN-029", "VENOMOUS", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/29.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 83, 8, 17, { description: "Venomous attitude. A dramatic creature graphic for a darker, more rebellious streetwear vibe.", drop: false }),
+    mk("GEN-030", "SHARK MODE", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/30.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 30, 8, 30, { description: "Shark Mode. Playful chaos meets streetwear with a bold cartoon shark graphic.", drop: false }),
+    mk("GEN-031", "PARIS NIGHTS", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/31.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 67, 8, 3, { description: "Paris Nights. Vintage city energy with iconic Paris-inspired typography and skyline artwork.", drop: false }),
+    mk("GEN-032", "INTROVERT ERA", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/32.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 14, 8, 16, { description: "Introvert Era. For the ones who enjoy their own space and still know how to style it.", drop: false }),
+    mk("GEN-033", "VENKAYAM CORE", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/33.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 51, 8, 29, { description: "Venkayam Core. A signature graphic concept with bold stacked typography and a distinctive identity.", drop: false }),
+    mk("GEN-034", "EARTH TONE", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/34.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 88, 8, 2, { description: "Earth Tone. A clean brown vintage-wash essential for understated, relaxed everyday fits.", drop: false }),
+    mk("GEN-035", "POWER MODE", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/35.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 35, 8, 15, { description: "Power Mode. Gym mindset meets streetwear with a bold workout statement graphic.", drop: false }),
+    mk("GEN-036", "THE GUARDIAN", "tees", 1299, 1799, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/36.jpg", { XS: 12, S: 20, M: 26, L: 22, XL: 14 }, 72, 8, 28, { description: "The Guardian. A dramatic traditional-mask inspired back graphic with strong visual presence.", drop: false }),
   ];
   const r = rng(42);
   const names = ["Arjun K.", "Meenakshi R.", "Karthik S.", "Divya P.", "Vignesh M.", "Priya N.", "Surya T.", "Anitha L.", "Rahul B.", "Harini V.", "Dinesh C.", "Lakshmi G."];
@@ -91,7 +124,7 @@ function seed(): DB {
   };
 }
 
-const KEY = "venkayam-db-v1";
+const KEY = "venkayam-db-v2";
 const load = (): DB => {
   try {
     const raw = localStorage.getItem(KEY);

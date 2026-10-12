@@ -199,6 +199,7 @@ function Departments() {
   );
 }
 
+const isShot = (p: Product) => p.img.startsWith("/products/");
 const sizesFor = (p: Product): [string, boolean][] => Object.entries(p.sizes).map(([k, n]) => [k, n > 0]);
 
 function ProductCard({ p }: { p: Product }) {
@@ -212,8 +213,8 @@ function ProductCard({ p }: { p: Product }) {
   };
   return (
     <article className="group flex flex-col border border-black/10 bg-white">
-      <a href={href(p)} aria-label={`View ${p.name}`} className="relative block aspect-[4/5] overflow-hidden bg-neutral-200">
-        <img src={imgSrc(p.img)} alt={p.name} className="absolute inset-0 size-full object-cover grayscale transition duration-700 group-hover:scale-105" />
+      <a href={href(p)} aria-label={`View ${p.name}`} className={`relative block aspect-[4/5] overflow-hidden ${isShot(p) ? "bg-[#f1e0d4]" : "bg-neutral-200"}`}>
+        <img src={imgSrc(p.img)} alt={p.name} className={`absolute inset-0 size-full object-cover transition duration-700 group-hover:scale-105 ${isShot(p) ? "origin-center scale-[1.55] object-[18%_50%] group-hover:scale-[1.65]" : "grayscale"}`} />
         {p.emblem && <img src={A(p.emblem)} alt="" className="absolute left-1/2 top-[48%] w-1/4 -translate-x-1/2 -translate-y-1/2 mix-blend-multiply" />}
         <span className={`${mono} absolute left-3 top-3 bg-white px-2 py-1 text-[9px] font-bold tracking-[0.1em]`}>{p.tag}</span>
         <span className={`${mono} absolute bottom-3 left-3 bg-black px-2 py-1 text-[9px] font-bold tracking-[0.1em] text-white`}>{p.badge}</span>
@@ -295,8 +296,8 @@ function ProductPage({ id }: { id: string }) {
             <span className="text-black">{p.tag}</span>
           </nav>
           <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
-            <div className="relative aspect-[4/5] overflow-hidden bg-neutral-200 lg:sticky lg:top-28 lg:self-start">
-              <img src={imgSrc(p.img)} alt={p.name} className="absolute inset-0 size-full object-cover grayscale" />
+            <div className={`relative overflow-hidden lg:sticky lg:top-28 lg:self-start ${isShot(p) ? "aspect-[461/343] bg-[#f1e0d4]" : "aspect-[4/5] bg-neutral-200"}`}>
+              <img src={imgSrc(p.img)} alt={p.name} className={`absolute inset-0 size-full object-cover ${isShot(p) ? "" : "grayscale"}`} />
               {p.emblem && <img src={A(p.emblem)} alt="" className="absolute left-1/2 top-[48%] w-1/4 -translate-x-1/2 -translate-y-1/2 mix-blend-multiply" />}
               <span className={`${mono} absolute left-4 top-4 bg-white px-3 py-1.5 text-[10px] font-bold tracking-[0.1em]`}>{p.tag}</span>
               <span className={`${mono} absolute bottom-4 left-4 bg-black px-3 py-1.5 text-[10px] font-bold tracking-[0.1em] text-white`}>{p.badge}</span>
