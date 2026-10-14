@@ -224,9 +224,9 @@ function ProductCard({ p }: { p: Product }) {
         <div className={`${mono} mb-2 flex justify-between text-[9px] tracking-[0.12em] text-neutral-500`}><span>{p.badge}</span><span className="font-bold text-black">{stockLabel(p)}</span></div>
         <h3 className="text-[15px] font-extrabold uppercase leading-snug"><a href={href(p)} className="hover:underline">{p.name}</a></h3>
         <div className="mt-3 flex items-center gap-3">
-          <span className={`${mono} text-base font-bold`}>{inr(p.price)}</span>
-          <span className={`${mono} text-xs text-neutral-400 line-through`}>{inr(p.was)}</span>
-          <span className={`${mono} ml-auto bg-neutral-100 px-2 py-1 text-[9px] font-bold tracking-wider`}>{offLabel(p)}</span>
+          <span className={`${mono} text-base font-bold`}>{p.price ? inr(p.price) : "Price soon"}</span>
+          {p.was > p.price && <span className={`${mono} text-xs text-neutral-400 line-through`}>{inr(p.was)}</span>}
+          {offLabel(p) && <span className={`${mono} ml-auto bg-neutral-100 px-2 py-1 text-[9px] font-bold tracking-wider`}>{offLabel(p)}</span>}
         </div>
         <div className="mt-4">
           <p className={`${mono} mb-2 flex justify-between text-[9px] font-bold tracking-[0.15em] ${warn && !size ? "text-red-700" : "text-neutral-500"}`}>
@@ -306,9 +306,9 @@ function ProductPage({ id }: { id: string }) {
               <p className={`${mono} mb-3 flex justify-between text-[10px] tracking-[0.2em] text-neutral-500`}><span>{p.badge}</span><span className="font-bold text-black">{stockLabel(p)}</span></p>
               <h1 className={`${disp} text-[clamp(2.2rem,4.5vw,4.2rem)] leading-[0.95]`}>{p.name}</h1>
               <div className="mt-5 flex items-center gap-4">
-                <span className={`${mono} text-2xl font-bold`}>{inr(p.price)}</span>
-                <span className={`${mono} text-sm text-neutral-400 line-through`}>{inr(p.was)}</span>
-                <span className={`${mono} bg-neutral-100 px-2.5 py-1 text-[10px] font-bold tracking-wider`}>{offLabel(p)}</span>
+                <span className={`${mono} text-2xl font-bold`}>{p.price ? inr(p.price) : "Price soon"}</span>
+                {p.was > p.price && <span className={`${mono} text-sm text-neutral-400 line-through`}>{inr(p.was)}</span>}
+                {offLabel(p) && <span className={`${mono} bg-neutral-100 px-2.5 py-1 text-[10px] font-bold tracking-wider`}>{offLabel(p)}</span>}
               </div>
               <p className="mt-6 max-w-xl text-[15px] leading-relaxed text-neutral-700">{p.description || d.blurb}</p>
 
