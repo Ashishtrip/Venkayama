@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import OnionLogo from "./components/OnionLogo";
+import Cooking from "./components/Cooking";
 import AdminGate from "./AdminGate";
 import { Lookbook, TrackOrder, Shipping, Returns, SizeMatrix } from "./Pages";
 import { useDB, imgSrc, stockLabel, offLabel, type Product } from "./store";
@@ -377,6 +378,7 @@ function ProductPage({ id }: { id: string }) {
 }
 
 function ProductGrid({ items }: { items: Product[] }) {
+  if (!items.length) return <Cooking />;
   return (
     <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {items.map((p) => <ProductCard key={p.name} p={p} />)}
@@ -587,7 +589,7 @@ function Shop({ cat }: { cat: string }) {
             </div>
           </div>
           <p className={`${mono} mb-4 text-[10px] tracking-[0.2em] text-neutral-500`}>{list.length} pieces</p>
-          {list.length ? <ProductGrid items={list} /> : <p className={`${mono} py-20 text-center text-[11px] text-neutral-500`}>Nothing matches your search.</p>}
+          {list.length ? <ProductGrid items={list} /> : q.trim() ? <p className={`${mono} py-20 text-center text-[11px] text-neutral-500`}>Nothing matches your search.</p> : <Cooking />}
         </div>
       </section>
     </>
@@ -628,6 +630,7 @@ function Drops() {
       </section>
       <section className="bg-neutral-50 px-6 py-16">
         <div className="mx-auto max-w-[1500px]">
+          {!products.length && <Cooking />}
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {products.map((p) => (
               <div key={p.id}>

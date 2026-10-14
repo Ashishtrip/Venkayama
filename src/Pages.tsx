@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Cooking from "./components/Cooking";
 import { FLOW, getDB, imgSrc, itemsText, useDB, type Order } from "./store";
 
 const mono = "font-mono uppercase";
@@ -40,6 +41,7 @@ export function Lookbook() {
     <>
       <Head kicker="Season 01 // Shot on North Chennai streets" title="Lookbook 2026" note="Eight looks. Hoardings, tea stalls, rain-slick asphalt and the people who wear it all." />
       <Block>
+        {!looks.length && <Cooking />}
         <div className="columns-1 gap-5 sm:columns-2 lg:columns-3">
           {looks.map(({ id, img, label: n, title: t, shape }) => (
             <figure key={id} className="group mb-5 break-inside-avoid">
