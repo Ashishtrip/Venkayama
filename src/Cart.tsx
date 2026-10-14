@@ -22,7 +22,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([]);
   const [isOpen, setOpen] = useState(false);
   const [view, setView] = useState<View>("cart");
-  const [pay, setPay] = useState<"COD" | "UPI" | "Card">("COD");
+  const [pay, setPay] = useState<"UPI" | "Card">("UPI");
   const [orderId, setOrderId] = useState("");
   const [stage, setStage] = useState<null | "loading" | "done">(null);
   const [progress, setProgress] = useState(0);
@@ -38,8 +38,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const disc = applied ? discountFor(applied, subtotal) : { amount: 0 };
   const after = subtotal - disc.amount;
   const shipping = subtotal === 0 || after >= FREE_SHIP ? 0 : settings.shipFee;
-  const codFee = pay === "COD" && subtotal > 0 ? settings.codFee : 0;
-  const total = after + shipping + codFee;
+  const total = after + shipping;
 
   const ctx = useMemo<Ctx>(
     () => ({
@@ -186,8 +185,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                 ))}
                 <fieldset>
                   <legend className={`${mono} mb-2 text-[10px] font-bold tracking-wider`}>Payment</legend>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(["COD", "UPI", "Card"] as const).map((p) => (
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["UPI", "Card"] as const).map((p) => (
                       <button type="button" key={p} onClick={() => setPay(p)} aria-pressed={pay === p} className={`${mono} border border-black py-3 text-[11px] font-bold tracking-wider ${pay === p ? "bg-black text-white" : "hover:bg-neutral-200"}`}>{p}</button>
                     ))}
                   </div>
@@ -196,7 +195,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                   {lines.map((l) => (
                     <p key={l.key} className="flex justify-between text-[13px]"><span className="truncate pr-3">{l.name} ({l.size}) ×{l.qty}</span><span className={`${mono} font-bold`}>{inr(l.price * l.qty)}</span></p>
                   ))}
-                  {codFee > 0 && <p className="flex justify-between text-[13px] text-neutral-600"><span>Cash on delivery fee</span><span className={`${mono} font-bold`}>{inr(codFee)}</span></p>}
                   {disc.amount > 0 && <p className="flex justify-between text-[13px] text-emerald-700"><span>Promo {applied}</span><span className={`${mono} font-bold`}>−{inr(disc.amount)}</span></p>}
                 </div>
               </div>

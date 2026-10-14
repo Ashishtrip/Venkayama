@@ -20,7 +20,7 @@ const trust = [
   [A("c7929.svg"), "FREE SHIPPING", "ON ORDERS ABOVE ₹999"],
   [A("3d926.svg"), "EASY RETURNS", "7 DAYS RETURN POLICY"],
   [A("6221c.svg"), "280+ GSM COTTON", "HEAVYWEIGHT & PRE-SHRUNK"],
-  [A("b5863.svg"), "COD AVAILABLE", "PAY AT DOORSTEP PAN-INDIA"],
+  [A("b5863.svg"), "SECURE PAYMENTS", "UPI & CARDS ACCEPTED"],
 ];
 
 const depts = [
@@ -58,7 +58,7 @@ function Header({ path }: { path: string }) {
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-black/10 bg-white/95 backdrop-blur">
       <div className={`${mono} flex h-7 items-center justify-center bg-black px-4 text-[10px] tracking-[0.12em] text-white`}>
-        Free shipping on orders over ₹999 • Cash on delivery available
+        Free shipping on orders over ₹999 • Secure UPI & card payments
       </div>
       <div className="mx-auto flex h-[60px] max-w-[1500px] items-center justify-between px-6">
         <a href={go("/")} className="flex items-center gap-2.5">
@@ -285,7 +285,7 @@ function ProductPage({ id }: { id: string }) {
   const acc: [string, string][] = [
     ["Details", p.description || d.blurb],
     ["Fit & sizing", d.fit],
-    ["Shipping & returns", "Free shipping above ₹999, otherwise ₹79. Dispatched from Chennai within 24 hours. COD available pan-India. 7-day easy returns on unworn pieces."],
+    ["Shipping & returns", "Free shipping above ₹999, otherwise ₹79. Dispatched from Chennai within 24 hours. 7-day easy returns on unworn pieces."],
   ];
   return (
     <>
@@ -442,7 +442,7 @@ function Footer() {
         <div className={`${mono} marquee flex w-max gap-8 whitespace-nowrap text-[10px] tracking-[0.2em]`}>
           {[0, 1].map((k) => (
             <span key={k} className="flex gap-8">
-              {["Free shipping on orders over ₹999", "Cash on delivery available", "100% heavyweight combed cotton", "Raw Chennai streetwear luxury"].map((t) => <span key={t}>{t} •</span>)}
+              {["Free shipping on orders over ₹999", "Secure UPI & card payments", "100% heavyweight combed cotton", "Raw Chennai streetwear luxury"].map((t) => <span key={t}>{t} •</span>)}
             </span>
           ))}
         </div>
@@ -667,8 +667,8 @@ function Drops() {
 
 function About() {
   const facts = [["2024", "Founded in Chennai"], ["280–450", "GSM combed cotton"], ["150", "Pieces per design"], ["100%", "Made in Tiruppur"]];
-  const steps = [["01", "Sketch", "Hand-cut stencils and hoarding-inspired lettering drawn in North Chennai."], ["02", "Knit & pre-shrink", "Combed Tiruppur yarn, pre-shrunk so oversized fits stay oversized."], ["03", "Screenprint", "Plastisol inks cured for lifetime endurance, one colour at a time."], ["04", "Dispatch", "Packed in Chennai and shipped pan-India, COD available."]];
-  const faqs = [["How does sizing run?", "Oversized, boxy cuts. Take your usual size for the intended fit, or size down one for a closer look."], ["What is your return policy?", "7 days from delivery for unworn pieces with tags. Drop pieces marked final sale are excluded."], ["Do you ship worldwide?", "Pan-India with free shipping above ₹999, and worldwide courier from Chennai."], ["Is cash on delivery available?", "Yes, across India. A small verification call may precede dispatch."]];
+  const steps = [["01", "Sketch", "Hand-cut stencils and hoarding-inspired lettering drawn in North Chennai."], ["02", "Knit & pre-shrink", "Combed Tiruppur yarn, pre-shrunk so oversized fits stay oversized."], ["03", "Screenprint", "Plastisol inks cured for lifetime endurance, one colour at a time."], ["04", "Dispatch", "Packed in Chennai and shipped pan-India."]];
+  const faqs = [["How does sizing run?", "Oversized, boxy cuts. Take your usual size for the intended fit, or size down one for a closer look."], ["What is your return policy?", "7 days from delivery for unworn pieces with tags. Drop pieces marked final sale are excluded."], ["Do you ship worldwide?", "Pan-India with free shipping above ₹999, and worldwide courier from Chennai."], ["Which payment methods do you accept?", "UPI and cards. We do not offer cash on delivery."]];
   const [open, setOpen] = useState(0);
   return (
     <>

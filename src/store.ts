@@ -10,12 +10,12 @@ export const FLOW: Status[] = ["Placed", "Printing", "Packed", "Shipped", "Deliv
 export type OrderItem = { name: string; size: string; qty: number; price: number };
 export type Order = {
   id: string; customer: string; phone: string; city: string; address: string; items: OrderItem[];
-  amount: number; pay: "COD" | "UPI" | "Card"; status: Status; createdAt: number; note: string; promo?: string;
+  amount: number; pay: "UPI" | "Card"; status: Status; createdAt: number; note: string; promo?: string;
 };
 export type Promo = { id: string; code: string; desc: string; type: "flat" | "percent"; value: number; used: number; cap: number; on: boolean };
 export type Zone = { id: string; name: string; days: string; fee: number; freeAbove: number };
 export type Look = { id: string; img: string; label: string; title: string; shape: "tall" | "wide" };
-export type Settings = { freeShip: number; shipFee: number; codFee: number };
+export type Settings = { freeShip: number; shipFee: number };
 export type Activity = { t: number; m: string; k: "order" | "alert" | "ship" | "edit" };
 export type DB = { products: Product[]; orders: Order[]; promos: Promo[]; zones: Zone[]; looks: Look[]; settings: Settings; activity: Activity[]; counter: number };
 
@@ -95,7 +95,7 @@ function seed(): DB {
     return {
       id: `VNK-${2480 - i}`, customer: names[ci], phone: `98765${String(10000 + ci * 731 + i).slice(-5)}`, city: cities[Math.floor(r() * cities.length)], address: "Sample address, street 12",
       items: [{ name: p.name, size: sk[Math.floor(r() * sk.length)], qty, price: p.price }], amount: p.price * qty,
-      pay: (["COD", "UPI", "Card"] as const)[Math.floor(r() * 3)], status: sts[Math.floor(r() * sts.length)],
+      pay: (["UPI", "Card"] as const)[Math.floor(r() * 2)], status: sts[Math.floor(r() * sts.length)],
       createdAt: now - (i * 31 + 2) * 36e5, note: "",
     };
   });
@@ -110,7 +110,7 @@ function seed(): DB {
       { id: uid("z"), name: "North-East & J&K", days: "7-10 days", fee: 149, freeAbove: 1999 },
     ],
     looks: [],
-    settings: { freeShip: 999, shipFee: 79, codFee: 40 },
+    settings: { freeShip: 999, shipFee: 79 },
     activity: [],
   };
 }

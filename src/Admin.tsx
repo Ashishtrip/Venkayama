@@ -182,7 +182,7 @@ type Draft = Omit<Order, "id" | "createdAt"> & { id?: string; createdAt?: number
 function OrderForm({ initial, onClose }: { initial?: Order; onClose: () => void }) {
   const products = useDB((d) => d.products);
   const [o, setO] = useState<Draft>(
-    initial ?? { customer: "", phone: "", city: "", address: "", items: [], amount: 0, pay: "COD", status: "Placed", note: "" }
+    initial ?? { customer: "", phone: "", city: "", address: "", items: [], amount: 0, pay: "UPI", status: "Placed", note: "" }
   );
   const [err, setErr] = useState("");
   const total = (items: OrderItem[]) => items.reduce((a, i) => a + i.price * i.qty, 0);
@@ -212,7 +212,7 @@ function OrderForm({ initial, onClose }: { initial?: Order; onClose: () => void 
         <Field label="City"><input value={o.city} onChange={(e) => setO({ ...o, city: e.target.value })} className={inputCls} /></Field>
         <Field label="Address"><input value={o.address} onChange={(e) => setO({ ...o, address: e.target.value })} className={inputCls} /></Field>
         <Field label="Payment">
-          <select value={o.pay} onChange={(e) => setO({ ...o, pay: e.target.value as Order["pay"] })} className={inputCls}>{["COD", "UPI", "Card"].map((x) => <option key={x}>{x}</option>)}</select>
+          <select value={o.pay} onChange={(e) => setO({ ...o, pay: e.target.value as Order["pay"] })} className={inputCls}>{["UPI", "Card"].map((x) => <option key={x}>{x}</option>)}</select>
         </Field>
         <Field label="Status">
           <select value={o.status} onChange={(e) => setO({ ...o, status: e.target.value as Status })} className={inputCls}>{[...FLOW, "Returned"].map((x) => <option key={x}>{x}</option>)}</select>
@@ -388,7 +388,6 @@ export default function Admin({ onSignOut, userEmail }: { onSignOut?: () => void
   const open = orders.filter((o) => ["Placed", "Printing", "Packed"].includes(o.status)).length;
   const pipeline = [...FLOW, "Returned" as Status].map((s) => ({ s, n: orders.filter((o) => o.status === s).length }));
   const pipeMax = Math.max(...pipeline.map((p) => p.n), 1);
-  const codShare = orders.length ? Math.round((orders.filter((o) => o.pay === "COD").length / orders.length) * 100) : 0;
   const topSold = Math.max(...products.map((p) => p.sold), 1);
 
   const kpis = [
@@ -517,7 +516,7 @@ export default function Admin({ onSignOut, userEmail }: { onSignOut?: () => void
                     </button>
                   ))}
                 </div>
-                <p className={`${mono} mt-4 border-t border-black/10 pt-3 text-[10px] tracking-wider text-neutral-500`}>COD share {codShare}% · RTO watch on COD</p>
+                <p className={`${mono} mt-4 border-t border-black/10 pt-3 text-[10px] tracking-wider text-neutral-500`}>Prepaid orders only</p>
               </Panel>
             </div>
 
@@ -737,7 +736,6 @@ export default function Admin({ onSignOut, userEmail }: { onSignOut?: () => void
               <form onSubmit={saveSettings} className="space-y-4">
                 <Field label="Free shipping above (₹)"><Num value={sset.freeShip} onChange={(n) => setSset({ ...sset, freeShip: n })} /></Field>
                 <Field label="Standard shipping fee (₹)"><Num value={sset.shipFee} onChange={(n) => setSset({ ...sset, shipFee: n })} /></Field>
-                <Field label="Cash on delivery fee (₹)"><Num value={sset.codFee} onChange={(n) => setSset({ ...sset, codFee: n })} /></Field>
                 <div className="flex items-center gap-3"><button className={btnDark}>Save rules</button>{saved && <span className={`${mono} text-[10px] text-emerald-700`}>Saved</span>}</div>
               </form>
             </Panel>

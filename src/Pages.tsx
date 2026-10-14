@@ -140,7 +140,7 @@ export function Shipping() {
       <Head kicker="Assistance // Domestic only" title="Domestic shipping" note="Pan-India delivery from our Chennai studio. International shipping is not available yet." />
       <Block>
         <div className="mb-14 grid gap-px bg-black/10 sm:grid-cols-3">
-          {[["24h", "Dispatch time", "Orders placed before 4 PM leave the studio the same working day."], [`₹${st.freeShip.toLocaleString("en-IN")}`, "Free shipping", "Cart value above this ships free to most of India."], ["COD", "Cash on delivery", `Available pan-India with a ₹${st.codFee} handling fee.`]].map(([n, t, d]) => (
+          {[["24h", "Dispatch time", "Orders placed before 4 PM leave the studio the same working day."], [`₹${st.freeShip.toLocaleString("en-IN")}`, "Free shipping", "Cart value above this ships free to most of India."], ["UPI", "Secure payment", "Pay by UPI or card at checkout. Cash on delivery is not offered."]].map(([n, t, d]) => (
             <div key={t} className="bg-white p-6"><p className={`${disp} text-6xl leading-none`}>{n}</p><p className={`${mono} mt-3 text-[11px] font-bold tracking-[0.15em]`}>{t}</p><p className="mt-2 text-sm text-neutral-600">{d}</p></div>
           ))}
         </div>
@@ -176,7 +176,7 @@ export function Returns() {
           <div>
             <h2 className={`${disp} mb-5 text-4xl leading-none`}>The rules</h2>
             <ul className="space-y-3 text-sm leading-relaxed text-neutral-700">
-              {["Return or exchange within 7 days of delivery.", "First size exchange is free. Further ones cost ₹79 shipping.", "Refunds go to the original payment method. COD refunds go to UPI or bank.", "Drop pieces and customised items are exchange-only.", "Sale items can be exchanged, not refunded.", "Worn, washed or altered pieces cannot be accepted."].map((t) => <li key={t} className="flex gap-3"><span className="mt-2 size-1.5 shrink-0 bg-black" />{t}</li>)}
+              {["Return or exchange within 7 days of delivery.", "First size exchange is free. Further ones cost ₹79 shipping.", "Refunds go to the original payment method.", "Drop pieces and customised items are exchange-only.", "Sale items can be exchanged, not refunded.", "Worn, washed or altered pieces cannot be accepted."].map((t) => <li key={t} className="flex gap-3"><span className="mt-2 size-1.5 shrink-0 bg-black" />{t}</li>)}
             </ul>
           </div>
           {sent ? (
