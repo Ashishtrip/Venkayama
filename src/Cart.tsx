@@ -1,5 +1,6 @@
 import OnionLogo from "./components/OnionLogo";
 import { actions, discountFor, getDB, imgSrc, useDB } from "./store";
+import { projectId, publicAnonKey } from "../utils/supabase/info";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 const mono = "font-mono uppercase";
@@ -78,9 +79,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setCodeMsg(`${res.promo!.code} applied, saving ${inr(res.amount)}`);
   };
 
-  const place = (e: React.FormEvent) => {
-    e.preventDefault();
-    const f = new FormData(e.currentTarget as HTMLFormElement);
+  const [paying, setPaying] = useState(false);
+  const [payErr, setPayErr] = useState("");
+
+  const finish = (f: FormData) => {
     const order = actions.placeOrder({
       customer: String(f.get("name")), phone: String(f.get("phone")), address: String(f.get("address")),
       city: String(f.get("city")), pay, amount: total, promo: applied || undefined,
@@ -93,6 +95,58 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setOpen(false);
     setProgress(0);
     setStage("loading");
+  };
+
+  const api = (path: string, body: unknown) =>
+    fetch(`https://${projectId}.supabase.co/functions/v1/make-server-ec741b02/razorpay/${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${publicAnonKey}` },
+      body: JSON.stringify(body),
+    }).then((r) => r.json());
+
+  const loadRzp = () =>
+    new Promise<boolean>((res) => {
+      if ((window as any).Razorpay) return res(true);
+      const s = document.createElement("script");
+      s.src = "https://checkout.razorpay.com/v1/checkout.js";
+      s.onload = () => res(true);
+      s.onerror = () => res(false);
+      document.body.appendChild(s);
+    });
+
+  const place = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (paying) return;
+    const f = new FormData(e.currentTarget as HTMLFormElement);
+    setPayErr(""); setPaying(true);
+    try {
+      if (!(await loadRzp())) throw new Error("Could not load payment window. Check your connection.");
+      const o = await api("order", { amount: total, receipt: `VNK-${Date.now()}` });
+      if (o.error || !o.orderId) throw new Error(o.error || "Could not start payment");
+      const rzp = new (window as any).Razorpay({
+        key: o.keyId, order_id: o.orderId, amount: o.amount, currency: o.currency,
+        name: "Venkayam India", description: "Streetwear order", theme: { color: "#000000" },
+        prefill: { name: String(f.get("name")), contact: String(f.get("phone")) },
+        config: { display: { preferences: { show_default_blocks: true }, sequence: [pay === "UPI" ? "block.upi" : "block.card"] } },
+        handler: async (r: any) => {
+          try {
+            const v = await api("verify", r);
+            if (!v.verified) throw new Error("Payment could not be verified. If money was deducted, contact us with ID " + r.razorpay_payment_id);
+            finish(f);
+          } catch (err) {
+            setPayErr((err as Error).message);
+          } finally {
+            setPaying(false);
+          }
+        },
+        modal: { ondismiss: () => setPaying(false) },
+      });
+      rzp.on("payment.failed", (r: any) => { setPayErr(r?.error?.description || "Payment failed. Try again."); setPaying(false); });
+      rzp.open();
+    } catch (err) {
+      setPayErr((err as Error).message);
+      setPaying(false);
+    }
   };
 
   useEffect(() => {
@@ -199,7 +253,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
               <footer className="border-t-2 border-black p-6">
-                <button className={`${mono} w-full bg-black py-4 text-[11px] font-bold tracking-[0.15em] text-white transition hover:bg-neutral-800`}>Place order • {inr(total)}</button>
+                {payErr && <p role="alert" className={`${mono} mb-3 border border-red-600 p-2 text-[10px] font-bold tracking-wider text-red-600`}>{payErr}</p>}
+                <button disabled={paying} className={`${mono} w-full bg-black py-4 text-[11px] font-bold tracking-[0.15em] text-white transition hover:bg-neutral-800 disabled:opacity-50`}>{paying ? "Opening payment…" : `Pay ${inr(total)}`}</button>
               </footer>
             </form>
           )}
