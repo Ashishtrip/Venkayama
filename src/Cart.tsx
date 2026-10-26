@@ -102,7 +102,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${publicAnonKey}` },
       body: JSON.stringify(body),
-    }).then((r) => r.json());
+    }).then(async (r) => {
+      const t = await r.text();
+      try { return JSON.parse(t); } catch { throw new Error(`Payment server unavailable (${r.status}). Make sure the server function is deployed.`); }
+    });
 
   const loadRzp = () =>
     new Promise<boolean>((res) => {
