@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Cooking from "./components/Cooking";
-import { FLOW, getDB, imgSrc, itemsText, useDB, type Order } from "./store";
+import { actions, exchangeOnly, FLOW, getDB, imgSrc, itemsText, returnEligibility, RFLOW, rLabel, RNOTES, useDB, type Order, type ReturnReq, type RStatus } from "./store";
 
 const mono = "font-mono uppercase";
 const disp = "font-display uppercase";
@@ -116,6 +116,7 @@ export function TrackOrder() {
                     </li>
                   ))}
                 </ol>)}
+                {(getDB().returns ?? []).filter((r) => r.orderId === res.id).map((r) => <div key={r.id} className="mt-8 border-2 border-black p-5"><ReturnTimeline r={r} /></div>)}
               </div>
               );
             })() : (
@@ -159,16 +160,165 @@ export function Shipping() {
 }
 
 /* ---------- Returns ---------- */
+const digits10 = (v: string) => v.replace(/\D/g, "").slice(-10);
+const fieldCls = "w-full border border-black bg-white px-4 py-3.5 text-sm outline-none focus:ring-2 focus:ring-black";
+const REASONS = ["Size does not fit", "Received wrong piece", "Print or fabric defect", "Damaged in transit", "Not as expected", "Changed my mind"];
+
+export function ReturnTimeline({ r }: { r: ReturnReq }) {
+  const rejected = r.status === "Rejected";
+  const step = RFLOW.indexOf(r.status);
+  const at = (s: RStatus) => r.history.find((h) => h.s === s);
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-3">
+        <h3 className={`${disp} text-4xl leading-none`}>{r.id}</h3>
+        <span className={`${mono} px-3 py-1.5 text-[10px] font-bold tracking-[0.15em] text-white ${rejected ? "bg-red-700" : "bg-black"}`}>{rLabel(r.status, r.type)}</span>
+      </div>
+      <p className={`${mono} mt-3 text-[10px] tracking-[0.15em] text-neutral-500`}>{r.type} · Order {r.orderId} · {new Date(r.createdAt).toLocaleDateString("en-IN")}</p>
+      <p className="mt-2 text-sm text-neutral-700">{r.item.name} ({r.item.size}){r.type === "Exchange" && r.newSize ? ` → size ${r.newSize}` : ""}{r.item.qty > 1 ? ` ×${r.item.qty}` : ""}</p>
+      {r.courier && <p className={`${mono} mt-2 text-[10px] tracking-[0.15em]`}>Courier ref {r.courier}</p>}
+      {rejected ? (
+        <p className={`${mono} mt-6 border-2 border-red-700 p-4 text-[11px] tracking-[0.12em] text-red-700`}>{at("Rejected")?.note || "This request could not be accepted."} Write to care@venkayam.in for help.</p>
+      ) : (
+        <ol className="mt-6 border-l-2 border-black/15">
+          {RFLOW.map((s, i) => (
+            <li key={s} className="relative pb-6 pl-8">
+              <span className={`absolute -left-[9px] top-0.5 size-4 border-2 border-black ${i <= step ? "bg-black" : "bg-white"}`} />
+              <p className={`${mono} text-xs font-bold tracking-[0.15em] ${i > step ? "text-neutral-400" : ""}`}>{rLabel(s, r.type)}</p>
+              <p className={`text-sm ${i > step ? "text-neutral-300" : "text-neutral-600"}`}>
+                {s === "Resolved" ? (r.type === "Return" ? "Refund sent to the original payment method in 3-5 days" : "New size dispatched from the studio") : RNOTES[s]}
+                {at(s) && <span className={`${mono} ml-2 text-[10px] text-neutral-500`}>{new Date(at(s)!.t).toLocaleDateString("en-IN")}</span>}
+              </p>
+              {at(s)?.note && <p className="mt-0.5 text-xs text-neutral-500">{at(s)!.note}</p>}
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+function StartRequest() {
+  const [code, setCode] = useState("");
+  const [phone, setPhone] = useState("");
+  const [order, setOrder] = useState<Order | null>(null);
+  const [err, setErr] = useState("");
+  const [idx, setIdx] = useState(0);
+  const [type, setType] = useState<"Return" | "Exchange">("Exchange");
+  const [newSize, setNewSize] = useState("");
+  const [reason, setReason] = useState(REASONS[0]);
+  const [comment, setComment] = useState("");
+  const [done, setDone] = useState<ReturnReq | null>(null);
+  const products = useDB((d) => d.products);
+  useDB((d) => d.returns);
+
+  const lookup = (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = code.trim().toUpperCase();
+    const o = getDB().orders.find((x) => x.track === clean || x.id === clean);
+    if (!o || phone.replace(/\D/g, "").length < 10 || (o.phone && digits10(o.phone) !== digits10(phone))) { setErr("No order found for that tracking code and phone number."); return; }
+    setErr(""); setOrder(o); setIdx(0); setNewSize("");
+  };
+  const item = order?.items[idx];
+  const block = order && item ? returnEligibility(order, item) : "";
+  const xOnly = item ? exchangeOnly(item) : false;
+  const effType = xOnly ? "Exchange" : type;
+  const prod = item ? products.find((p) => p.name === item.name) : undefined;
+  const sizeOpts = prod ? Object.entries(prod.sizes).filter(([s, n]) => s !== item?.size && n >= (item?.qty ?? 1)) : [];
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!order || !item || block) return;
+    if (effType === "Exchange" && !newSize) { setErr("Choose the size you want instead."); return; }
+    setErr("");
+    setDone(actions.requestReturn({ order, item, type: effType, newSize, reason, comment: comment.trim() }));
+  };
+  const reset = () => { setDone(null); setOrder(null); setCode(""); setPhone(""); setComment(""); setNewSize(""); };
+
+  if (done) return (
+    <div className="self-start border-2 border-black p-8" role="status">
+      <p className={`${mono} text-[10px] tracking-[0.2em] text-neutral-500`}>{done.type} request received</p>
+      <h2 className={`${disp} mt-1 text-5xl leading-none`}>{done.id}</h2>
+      <p className="mt-3 text-sm text-neutral-700">Save this ID. We review within one working day and then schedule a pickup. Follow progress under Check status.</p>
+      <button onClick={reset} className={`${mono} mt-6 border border-black px-5 py-3 text-[11px] font-bold tracking-[0.15em] hover:bg-black hover:text-white`}>New request</button>
+    </div>
+  );
+  if (!order) return (
+    <form onSubmit={lookup} className="space-y-4 self-start border-2 border-black p-6">
+      <input required value={code} onChange={(e) => setCode(e.target.value)} placeholder="Tracking code, e.g. 3FA91C07BE" aria-label="Tracking code" className={fieldCls} />
+      <input required value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="Phone used at checkout" aria-label="Phone" className={fieldCls} />
+      <button className={`${mono} w-full bg-black py-4 text-[11px] font-bold tracking-[0.15em] text-white hover:bg-neutral-800`}>Find my order</button>
+      {err && <p role="alert" className={`${mono} text-[10px] tracking-[0.1em] text-red-700`}>{err}</p>}
+    </form>
+  );
+  return (
+    <form onSubmit={submit} className="space-y-4 self-start border-2 border-black p-6">
+      <div className="flex items-center justify-between"><p className={`${mono} text-[10px] font-bold tracking-[0.15em]`}>Order {order.id}</p><button type="button" onClick={() => setOrder(null)} className={`${mono} text-[10px] underline`}>Change</button></div>
+      <fieldset className="space-y-2"><legend className={`${mono} mb-2 text-[10px] font-bold tracking-[0.15em]`}>Which piece</legend>
+        {order.items.map((it, i) => {
+          const b = returnEligibility(order, it);
+          return (
+            <label key={i} className={`flex cursor-pointer items-start gap-3 border p-3 text-sm ${idx === i ? "border-black bg-neutral-100" : "border-black/20"}`}>
+              <input type="radio" name="piece" checked={idx === i} onChange={() => { setIdx(i); setNewSize(""); }} className="mt-1 accent-black" />
+              <span><b>{it.name}</b> ({it.size}) ×{it.qty}{b && <span className={`${mono} mt-1 block text-[10px] tracking-[0.1em] text-red-700`}>{b}</span>}</span>
+            </label>
+          );
+        })}
+      </fieldset>
+      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Request type">
+        {(["Exchange", "Return"] as const).map((t) => (
+          <button type="button" key={t} role="radio" aria-checked={effType === t} disabled={t === "Return" && xOnly} onClick={() => setType(t)} className={`${mono} border border-black py-3 text-[11px] font-bold tracking-wider disabled:cursor-not-allowed disabled:opacity-30 ${effType === t ? "bg-black text-white" : "hover:bg-neutral-200"}`}>{t}</button>
+        ))}
+      </div>
+      {xOnly && <p className={`${mono} text-[10px] tracking-[0.1em] text-neutral-500`}>Drop and sale pieces are exchange-only.</p>}
+      {effType === "Exchange" && (
+        sizeOpts.length ? (
+          <select value={newSize} onChange={(e) => setNewSize(e.target.value)} aria-label="New size" className={fieldCls}>
+            <option value="">New size</option>
+            {sizeOpts.map(([s]) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        ) : <p className={`${mono} text-[10px] tracking-[0.1em] text-red-700`}>No other size is in stock for this piece. Choose Return instead{xOnly ? " is unavailable, write to care@venkayam.in" : ""}.</p>
+      )}
+      <select value={reason} onChange={(e) => setReason(e.target.value)} aria-label="Reason" className={fieldCls}>{REASONS.map((r) => <option key={r}>{r}</option>)}</select>
+      <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={3} placeholder="Anything we should know (optional)" className={fieldCls} />
+      <button disabled={!!block || (effType === "Exchange" && !sizeOpts.length)} className={`${mono} w-full bg-black py-4 text-[11px] font-bold tracking-[0.15em] text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40`}>Submit {effType.toLowerCase()} request</button>
+      {(block || err) && <p role="alert" className={`${mono} text-[10px] tracking-[0.1em] text-red-700`}>{block || err}</p>}
+    </form>
+  );
+}
+
+function ReturnStatus() {
+  const [id, setId] = useState("");
+  const [phone, setPhone] = useState("");
+  const [res, setRes] = useState<null | ReturnReq | "none">(null);
+  const rs = useDB((d) => d.returns ?? []);
+  const live = res && res !== "none" ? rs.find((x) => x.id === res.id) ?? res : res;
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const r = rs.find((x) => x.id === id.trim().toUpperCase());
+    setRes(r && (!r.phone || digits10(r.phone) === digits10(phone)) ? r : "none");
+  };
+  return (
+    <div className="space-y-6 self-start">
+      <form onSubmit={submit} className="space-y-4 border-2 border-black p-6">
+        <input required value={id} onChange={(e) => setId(e.target.value)} placeholder="Request ID, e.g. RET-1001" aria-label="Request ID" className={fieldCls} />
+        <input required value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="Phone used at checkout" aria-label="Phone" className={fieldCls} />
+        <button className={`${mono} w-full bg-black py-4 text-[11px] font-bold tracking-[0.15em] text-white hover:bg-neutral-800`}>Check status</button>
+        {res === "none" && <p role="alert" className={`${mono} text-[10px] tracking-[0.1em] text-red-700`}>No request found for that ID and phone number.</p>}
+      </form>
+      {live && live !== "none" && <div className="border-2 border-black p-6"><ReturnTimeline r={live} /></div>}
+    </div>
+  );
+}
+
 export function Returns() {
-  const [sent, setSent] = useState(false);
-  const [type, setType] = useState("Exchange");
-  const field = "w-full border border-black bg-white px-4 py-3.5 text-sm outline-none focus:ring-2 focus:ring-black";
+  const [tab, setTab] = useState<"start" | "status">("start");
   return (
     <>
       <Head kicker="Assistance // 7 day window" title="Returns & exchange" note="Unworn, unwashed, tags on. Start a request below and we send a pickup." />
       <Block>
         <div className="grid gap-px bg-black/10 md:grid-cols-4">
-          {[["01", "Request", "Share your order reference and the piece."], ["02", "Pickup", "Courier collects within 2 working days."], ["03", "Inspection", "We check the piece at the studio."], ["04", "Resolved", "New size ships or refund lands in 3-5 days."]].map(([n, t, d]) => (
+          {[["01", "Request", "Share your tracking code and the piece."], ["02", "Pickup", "Courier collects within 2 working days."], ["03", "Inspection", "We check the piece at the studio."], ["04", "Resolved", "New size ships or refund lands in 3-5 days."]].map(([n, t, d]) => (
             <div key={n} className="bg-white p-6"><span className={`${disp} text-4xl`}>{n}</span><h3 className={`${mono} mt-2 text-xs font-bold tracking-[0.15em]`}>{t}</h3><p className="mt-2 text-sm text-neutral-600">{d}</p></div>
           ))}
         </div>
@@ -179,23 +329,12 @@ export function Returns() {
               {["Return or exchange within 7 days of delivery.", "First size exchange is free. Further ones cost ₹79 shipping.", "Refunds go to the original payment method.", "Drop pieces and customised items are exchange-only.", "Sale items can be exchanged, not refunded.", "Worn, washed or altered pieces cannot be accepted."].map((t) => <li key={t} className="flex gap-3"><span className="mt-2 size-1.5 shrink-0 bg-black" />{t}</li>)}
             </ul>
           </div>
-          {sent ? (
-            <div className="self-start border-2 border-black p-8" role="status">
-              <h2 className={`${disp} text-4xl leading-none`}>Request received</h2>
-              <p className="mt-3 text-sm text-neutral-700">We will email you a pickup slot within one working day. Demo only: nothing is stored yet.</p>
-              <button onClick={() => setSent(false)} className={`${mono} mt-6 border border-black px-5 py-3 text-[11px] font-bold tracking-[0.15em] hover:bg-black hover:text-white`}>New request</button>
+          <div>
+            <div className="mb-4 grid grid-cols-2 gap-2" role="tablist">
+              {([["start", "Start a request"], ["status", "Check status"]] as const).map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={`${mono} border border-black py-3 text-[11px] font-bold tracking-wider ${tab === k ? "bg-black text-white" : "hover:bg-neutral-200"}`}>{l}</button>)}
             </div>
-          ) : (
-            <form onSubmit={(e) => { e.preventDefault(); setSent(true); }} className="space-y-4 self-start border-2 border-black p-6">
-              <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Request type">
-                {["Exchange", "Return"].map((t) => <button type="button" key={t} role="radio" aria-checked={type === t} onClick={() => setType(t)} className={`${mono} border border-black py-3 text-[11px] font-bold tracking-wider ${type === t ? "bg-black text-white" : "hover:bg-neutral-200"}`}>{t}</button>)}
-              </div>
-              <input required placeholder="Order reference (VNK-2480)" className={field} />
-              <input required type="email" placeholder="Email" className={field} />
-              <textarea required rows={3} placeholder={type === "Exchange" ? "Which size do you need instead?" : "Reason for return"} className={field} />
-              <button className={`${mono} w-full bg-black py-4 text-[11px] font-bold tracking-[0.15em] text-white hover:bg-neutral-800`}>Submit {type.toLowerCase()} request</button>
-            </form>
-          )}
+            {tab === "start" ? <StartRequest /> : <ReturnStatus />}
+          </div>
         </div>
       </Block>
       <Help />

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import OnionLogo from "./components/OnionLogo";
 import {
-  actions, CATS, catLabel, compressImage, FLOW, IMAGES, imgSrc, itemsText, sizeKeys, totalStock, useDB,
-  type Look, type Order, type OrderItem, type Product, type Promo, type Status, type Zone,
+  actions, CATS, catLabel, compressImage, FLOW, IMAGES, imgSrc, itemsText, RFLOW, rLabel, sizeKeys, totalStock, useDB,
+  type Look, type ReturnReq, type RStatus, type Order, type OrderItem, type Product, type Promo, type Status, type Zone,
 } from "./store";
 
 const mono = "font-mono uppercase";
@@ -68,6 +68,50 @@ function Modal({ title, onClose, children, wide = false }: { title: string; onCl
         <div className="p-5">{children}</div>
       </div>
     </div>
+  );
+}
+
+function ReturnDetail({ id, onClose, onDelete }: { id: string; onClose: () => void; onDelete: () => void }) {
+  const r = useDB((d) => (d.returns ?? []).find((x) => x.id === id));
+  const [courier, setCourier] = useState(r?.courier ?? "");
+  const [refund, setRefund] = useState(r?.refund ?? 0);
+  const [note, setNote] = useState(r?.note ?? "");
+  const [msg, setMsg] = useState("");
+  if (!r) return null;
+  const closed = r.status === "Resolved" || r.status === "Rejected";
+  const save = () => { actions.updateReturn(r.id, { courier: courier.trim(), refund, note }); onClose(); };
+  const reject = () => { actions.setReturnStatus(r.id, "Rejected", msg.trim() || undefined); };
+  return (
+    <Modal title={`${r.id} · ${r.type}`} onClose={onClose} wide>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-1 text-sm">
+          <p><b>{r.customer}</b> <span className={`${mono} text-[10px] text-neutral-500`}>{r.phone}</span></p>
+          <p className="text-neutral-600">{r.address || "No address on file"}</p>
+          <p className={`${mono} pt-2 text-[10px] tracking-wider`}>Order {r.orderId} · code {r.track || "n/a"}</p>
+          <p className="pt-2">{r.item.name} ({r.item.size}) ×{r.item.qty} · {inr(r.item.price * r.item.qty)}</p>
+          {r.newSize && <p className={`${mono} text-[11px] font-bold`}>Exchange for size {r.newSize}</p>}
+          <p className="pt-2"><b>Reason:</b> {r.reason}</p>
+          {r.comment && <p className="text-neutral-600">“{r.comment}”</p>}
+        </div>
+        <div>
+          <p className={`${mono} mb-2 text-[9px] font-bold tracking-[0.15em] text-neutral-600`}>History</p>
+          <ul className="space-y-1.5 border-l-2 border-black/15 pl-3">
+            {r.history.map((h, i) => <li key={i} className="text-[12px]"><b className={mono}>{rLabel(h.s, r.type)}</b> <span className="text-neutral-500">{new Date(h.t).toLocaleString("en-IN")}</span>{h.note && <span className="block text-neutral-600">{h.note}</span>}</li>)}
+          </ul>
+        </div>
+        <Field label="Status"><select value={r.status} onChange={(e) => actions.setReturnStatus(r.id, e.target.value as RStatus)} className={inputCls}>{[...RFLOW, "Rejected" as RStatus].map((s) => <option key={s} value={s}>{rLabel(s, r.type)}</option>)}</select></Field>
+        <Field label="Pickup courier / AWB"><input value={courier} onChange={(e) => setCourier(e.target.value)} className={inputCls} placeholder="e.g. Delhivery 1234567890" /></Field>
+        {r.type === "Return" && <Field label="Refund amount (₹)" hint="Refund is issued from the Razorpay dashboard. Record the amount here."><Num value={refund} onChange={setRefund} /></Field>}
+        <Field label="Internal note"><input value={note} onChange={(e) => setNote(e.target.value)} className={inputCls} /></Field>
+        {!closed && <Field label="Rejection message (shown to customer)"><input value={msg} onChange={(e) => setMsg(e.target.value)} className={inputCls} placeholder="e.g. Piece shows signs of wear" /></Field>}
+      </div>
+      <p className="mt-4 text-[11px] text-neutral-500">Stock updates automatically: an exchange reserves the new size on approval, and the returned piece is restocked once marked Received.</p>
+      <div className="mt-4 flex flex-wrap gap-3 border-t border-black/10 pt-4">
+        <button onClick={save} className={btnDark}>Save details</button>
+        {!closed && r.status !== "Received" && <button onClick={reject} className={btnDanger}>Reject request</button>}
+        <button onClick={onDelete} className={btnDanger}>Delete</button>
+      </div>
+    </Modal>
   );
 }
 
@@ -320,12 +364,13 @@ function LookForm({ initial, onClose }: { initial?: Look; onClose: () => void })
 }
 
 /* ---------------- Admin ---------------- */
-const TABS = ["Overview", "Orders", "Products", "Customers", "Promos", "Shipping", "Lookbook"] as const;
+const TABS = ["Overview", "Orders", "Returns", "Products", "Customers", "Promos", "Shipping", "Lookbook"] as const;
 type Tab = (typeof TABS)[number];
 
 type Dlg =
   | { k: "product"; v: Product; isNew: boolean }
   | { k: "order"; v?: Order }
+  | { k: "return"; id: string }
   | { k: "promo"; v?: Promo }
   | { k: "zone"; v?: Zone }
   | { k: "look"; v?: Look }
@@ -339,6 +384,9 @@ export default function Admin({ onSignOut, userEmail }: { onSignOut?: () => void
   const promos = useDB((d) => d.promos);
   const zones = useDB((d) => d.zones);
   const looks = useDB((d) => d.looks);
+  const rets = useDB((d) => d.returns ?? []);
+  const [rfilter, setRfilter] = useState<RStatus | "All" | "Open">("Open");
+  const [rq, setRq] = useState("");
   const settings = useDB((d) => d.settings);
   const activity = useDB((d) => d.activity);
   const [dlg, setDlg] = useState<Dlg>(null);
@@ -384,7 +432,9 @@ export default function Admin({ onSignOut, userEmail }: { onSignOut?: () => void
   const chartMax = Math.max(...series.chart.map((c) => c.v), 1);
   const chartTotal = series.chart.reduce((a, c) => a + c.v, 0);
 
-  const returns = orders.filter((o) => o.status === "Returned").length;
+  const returns = rets.filter((r) => r.type === "Return" && r.status !== "Rejected").length;
+  const openRets = rets.filter((r) => r.status !== "Resolved" && r.status !== "Rejected").length;
+  const rshown = rets.filter((r) => (rfilter === "All" || (rfilter === "Open" ? r.status !== "Resolved" && r.status !== "Rejected" : r.status === rfilter)) && `${r.id} ${r.orderId} ${r.track} ${r.customer} ${r.phone} ${r.item.name}`.toLowerCase().includes(rq.toLowerCase()));
   const open = orders.filter((o) => ["Placed", "Printing", "Packed"].includes(o.status)).length;
   const pipeline = [...FLOW, "Returned" as Status].map((s) => ({ s, n: orders.filter((o) => o.status === s).length }));
   const pipeMax = Math.max(...pipeline.map((p) => p.n), 1);
@@ -452,6 +502,7 @@ export default function Admin({ onSignOut, userEmail }: { onSignOut?: () => void
             <button key={t} onClick={() => setTab(t)} className={`${mono} flex shrink-0 items-center gap-3 px-3 py-3 text-left text-[11px] font-bold tracking-[0.15em] transition ${tab === t ? "bg-white text-black" : "text-white/70 hover:bg-white/10"}`}>
               <span className="text-[9px] opacity-60">0{i + 1}</span>{t}
               {t === "Products" && lowStock.length > 0 && <span className="ml-auto bg-red-600 px-1.5 text-[9px] text-white">{lowStock.length}</span>}
+              {t === "Returns" && openRets > 0 && <span className="ml-auto bg-red-600 px-1.5 text-[9px] text-white">{openRets}</span>}
               {t === "Orders" && <span className="ml-auto text-[9px] opacity-60">{orders.filter((o) => o.status === "Placed").length} new</span>}
             </button>
           ))}
@@ -610,6 +661,46 @@ export default function Admin({ onSignOut, userEmail }: { onSignOut?: () => void
           </Panel>
         )}
 
+        {tab === "Returns" && (
+          <Panel title="Returns & exchanges" kicker={`${rshown.length} of ${rets.length} requests · ${openRets} open`} right={
+            <input value={rq} onChange={(e) => setRq(e.target.value)} placeholder="SEARCH ID, ORDER, NAME" aria-label="Search returns" className={`${mono} w-48 border border-black px-3 py-2 text-[10px] tracking-widest outline-none placeholder:text-neutral-400 focus:bg-neutral-100 md:w-64`} />
+          }>
+            <div className="mb-4 flex flex-wrap gap-2">
+              {(["Open", "All", ...RFLOW, "Rejected"] as const).map((s) => (
+                <button key={s} onClick={() => setRfilter(s)} className={`${mono} border border-black px-3 py-1.5 text-[10px] font-bold tracking-wider ${rfilter === s ? "bg-black text-white" : "hover:bg-neutral-200"}`}>{s}</button>
+              ))}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[900px] text-left text-sm">
+                <thead><tr className={`${mono} border-b border-black text-[9px] tracking-[0.15em] text-neutral-500`}>{["Request", "Order", "Customer", "Piece", "Type", "Reason", "Status", "Age", ""].map((h) => <th key={h} className="px-2 py-2 font-bold">{h}</th>)}</tr></thead>
+                <tbody>
+                  {rshown.map((r) => {
+                    const i = RFLOW.indexOf(r.status);
+                    const nx = i >= 0 && i < RFLOW.length - 1 ? RFLOW[i + 1] : null;
+                    return (
+                      <tr key={r.id} className="border-b border-black/10 hover:bg-neutral-50">
+                        <td className={`${mono} px-2 py-3 text-[11px] font-bold`}>{r.id}</td>
+                        <td className={`${mono} px-2 py-3 text-[10px]`}>{r.orderId}{r.track && <span className="block select-all text-[9px] text-neutral-500">{r.track}</span>}</td>
+                        <td className="px-2 py-3"><p className="font-bold">{r.customer}</p><p className={`${mono} text-[9px] text-neutral-500`}>{r.phone}</p></td>
+                        <td className="px-2 py-3 text-[13px]">{r.item.name} ({r.item.size}) ×{r.item.qty}{r.newSize && <span className={`${mono} block text-[10px] text-neutral-500`}>→ {r.newSize}</span>}</td>
+                        <td className={`${mono} px-2 py-3 text-[10px]`}>{r.type}</td>
+                        <td className="max-w-[180px] px-2 py-3 text-[12px]">{r.reason}</td>
+                        <td className="px-2 py-3"><span className={`${mono} px-2 py-1 text-[9px] font-bold tracking-wider ${r.status === "Rejected" ? "bg-red-700 text-white" : r.status === "Resolved" ? "bg-emerald-700 text-white" : r.status === "Requested" ? "bg-neutral-200" : "bg-black text-white"}`}>{rLabel(r.status, r.type)}</span></td>
+                        <td className={`${mono} px-2 py-3 text-[10px] text-neutral-500`}>{ago(r.createdAt)}</td>
+                        <td className="whitespace-nowrap px-2 py-3 text-right"><span className="inline-flex gap-1.5">
+                          {nx && <button onClick={() => actions.setReturnStatus(r.id, nx)} className={`${mono} bg-black px-3 py-1.5 text-[9px] font-bold tracking-wider text-white hover:bg-neutral-700`}>→ {rLabel(nx, r.type)}</button>}
+                          <button onClick={() => setDlg({ k: "return", id: r.id })} className={btnLine}>Manage</button>
+                        </span></td>
+                      </tr>
+                    );
+                  })}
+                  {rshown.length === 0 && <tr><td colSpan={9} className={`${mono} py-10 text-center text-[11px] text-neutral-500`}>No requests match.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+        )}
+
         {tab === "Products" && (
           <div className="space-y-5">
             {lowStock.length > 0 && (
@@ -760,6 +851,7 @@ export default function Admin({ onSignOut, userEmail }: { onSignOut?: () => void
       </main>
 
       {dlg?.k === "product" && <ProductForm initial={dlg.v} isNew={dlg.isNew} onClose={close} />}
+      {dlg?.k === "return" && <ReturnDetail id={dlg.id} onClose={close} onDelete={() => ask(`Delete ${dlg.id}? This cannot be undone.`, () => actions.removeReturn(dlg.id))} />}
       {dlg?.k === "order" && <OrderForm initial={dlg.v} onClose={close} />}
       {dlg?.k === "promo" && <PromoForm initial={dlg.v} onClose={close} />}
       {dlg?.k === "zone" && <ZoneForm initial={dlg.v} onClose={close} />}

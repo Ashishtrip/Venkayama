@@ -10,14 +10,33 @@ export const FLOW: Status[] = ["Placed", "Printing", "Packed", "Shipped", "Deliv
 export type OrderItem = { name: string; size: string; qty: number; price: number };
 export type Order = {
   id: string; customer: string; phone: string; city: string; address: string; items: OrderItem[];
-  amount: number; pay: "UPI" | "Card"; status: Status; createdAt: number; note: string; promo?: string; track?: string;
+  amount: number; pay: "UPI" | "Card"; status: Status; createdAt: number; note: string; promo?: string; track?: string; deliveredAt?: number;
 };
 export type Promo = { id: string; code: string; desc: string; type: "flat" | "percent"; value: number; used: number; cap: number; on: boolean };
 export type Zone = { id: string; name: string; days: string; fee: number; freeAbove: number };
 export type Look = { id: string; img: string; label: string; title: string; shape: "tall" | "wide" };
 export type Settings = { freeShip: number; shipFee: number };
 export type Activity = { t: number; m: string; k: "order" | "alert" | "ship" | "edit" };
-export type DB = { products: Product[]; orders: Order[]; promos: Promo[]; zones: Zone[]; looks: Look[]; settings: Settings; activity: Activity[]; counter: number };
+export type RStatus = "Requested" | "Approved" | "Pickup scheduled" | "Picked up" | "Received" | "Resolved" | "Rejected";
+export const RFLOW: RStatus[] = ["Requested", "Approved", "Pickup scheduled", "Picked up", "Received", "Resolved"];
+export const RETURN_DAYS = 7;
+export const rLabel = (s: RStatus, type: "Return" | "Exchange") => (s === "Resolved" ? (type === "Return" ? "Refunded" : "Replacement shipped") : s);
+export const RNOTES: Record<RStatus, string> = {
+  Requested: "Request received, our team is reviewing it",
+  Approved: "Approved. A pickup will be scheduled",
+  "Pickup scheduled": "Courier pickup booked from your address",
+  "Picked up": "Courier has collected the piece",
+  Received: "Piece reached our Chennai studio and passed inspection",
+  Resolved: "Closed",
+  Rejected: "Request could not be accepted",
+};
+export type ReturnReq = {
+  id: string; orderId: string; track: string; customer: string; phone: string; address: string;
+  type: "Return" | "Exchange"; item: OrderItem; newSize?: string; reason: string; comment: string;
+  status: RStatus; createdAt: number; history: { t: number; s: RStatus; note?: string }[];
+  courier: string; refund: number; note: string;
+};
+export type DB = { returns?: ReturnReq[]; products: Product[]; orders: Order[]; promos: Promo[]; zones: Zone[]; looks: Look[]; settings: Settings; activity: Activity[]; counter: number };
 
 export const CATS: [string, string][] = [["tees", "Tees"], ["hoodies", "Hoodies"], ["caps", "Caps"], ["acc", "Accessories"]];
 export const catLabel = (c: string) => CATS.find(([k]) => k === c)?.[1] ?? c;
@@ -35,6 +54,17 @@ export const newTrackCode = (taken: string[] = []) => {
   let c = "";
   do { c = Array.from(crypto.getRandomValues(new Uint8Array(5)), (b) => b.toString(16).padStart(2, "0")).join("").toUpperCase(); } while (taken.includes(c));
   return c;
+};
+export const returnEligibility = (o: Order, item: OrderItem): string => {
+  if (o.status !== "Delivered") return o.status === "Returned" ? "This order was already returned." : "Returns open once the order is delivered.";
+  const days = (Date.now() - (o.deliveredAt ?? o.createdAt)) / 864e5;
+  if (days > RETURN_DAYS) return `The ${RETURN_DAYS} day window has closed.`;
+  if ((getDB().returns ?? []).some((r) => r.orderId === o.id && r.item.name === item.name && r.item.size === item.size && r.status !== "Rejected")) return "A request is already open for this piece.";
+  return "";
+};
+export const exchangeOnly = (item: OrderItem): boolean => {
+  const p = getDB().products.find((x) => x.name === item.name);
+  return !!p && (p.drop || p.was > p.price);
 };
 export const itemsText = (o: Order) => o.items.map((i) => `${i.name}${i.qty > 1 ? ` ×${i.qty}` : ""} (${i.size})`).join(", ");
 
@@ -124,7 +154,7 @@ const KEY = "venkayam-db-v4";
 const load = (): DB => {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return JSON.parse(raw) as DB;
+    if (raw) { const d = JSON.parse(raw) as DB; return { ...d, returns: d.returns ?? [] }; }
   } catch { /* fall through to seed */ }
   return seed();
 };
@@ -164,7 +194,7 @@ export const actions = {
     commit(withLog({ ...db, [key]: (db[key] as { id: string }[]).filter((x) => x.id !== id) } as DB, `${label ?? key} deleted`, "edit"));
   },
   setStatus(id: string, status: Status) {
-    commit(withLog({ ...db, orders: db.orders.map((o) => (o.id === id ? { ...o, status } : o)) }, `${id} → ${status}`, "ship"));
+    commit(withLog({ ...db, orders: db.orders.map((o) => (o.id === id ? { ...o, status, deliveredAt: status === "Delivered" ? Date.now() : o.deliveredAt } : o)) }, `${id} → ${status}`, "ship"));
   },
   setSettings(s: Settings) {
     commit(withLog({ ...db, settings: s }, "Shipping settings updated", "edit"));
@@ -193,6 +223,47 @@ export const actions = {
     });
     commit(next);
     return order;
+  },
+  requestReturn(r: { order: Order; item: OrderItem; type: "Return" | "Exchange"; newSize?: string; reason: string; comment: string }): ReturnReq {
+    const list = db.returns ?? [];
+    const n = list.reduce((m, x) => Math.max(m, Number(x.id.slice(4)) || 0), 1000) + 1;
+    const now = Date.now();
+    const req: ReturnReq = {
+      id: `RET-${n}`, orderId: r.order.id, track: r.order.track ?? "", customer: r.order.customer, phone: r.order.phone, address: r.order.address,
+      type: r.type, item: { ...r.item, qty: r.item.qty }, newSize: r.type === "Exchange" ? r.newSize : undefined, reason: r.reason, comment: r.comment,
+      status: "Requested", createdAt: now, history: [{ t: now, s: "Requested" }], courier: "", refund: r.type === "Return" ? r.item.price * r.item.qty : 0, note: "",
+    };
+    commit(withLog({ ...db, returns: [req, ...list] }, `${req.id} ${r.type.toLowerCase()} requested for ${r.order.id}`, "alert"));
+    return req;
+  },
+  updateReturn(id: string, patch: Partial<Pick<ReturnReq, "courier" | "refund" | "note">>) {
+    commit({ ...db, returns: (db.returns ?? []).map((x) => (x.id === id ? { ...x, ...patch } : x)) });
+  },
+  setReturnStatus(id: string, status: RStatus, note?: string) {
+    const r = (db.returns ?? []).find((x) => x.id === id);
+    if (!r || r.status === status) return;
+    const wasReserved = r.type === "Exchange" && !["Requested", "Rejected"].includes(r.status);
+    const willReserve = r.type === "Exchange" && status !== "Requested" && status !== "Rejected";
+    const wasRestocked = r.status === "Received" || r.status === "Resolved";
+    const willRestock = status === "Received" || status === "Resolved";
+    const adj = (p: Product): Product => {
+      if (p.name !== r.item.name) return p;
+      const sizes = { ...p.sizes };
+      if (r.newSize && willReserve && !wasReserved) sizes[r.newSize] = Math.max(0, (sizes[r.newSize] ?? 0) - r.item.qty);
+      if (r.newSize && wasReserved && !willReserve) sizes[r.newSize] = (sizes[r.newSize] ?? 0) + r.item.qty;
+      if (willRestock && !wasRestocked) sizes[r.item.size] = (sizes[r.item.size] ?? 0) + r.item.qty;
+      return { ...p, sizes };
+    };
+    const returns = (db.returns ?? []).map((x) => (x.id === id ? { ...x, status, history: [...x.history, { t: Date.now(), s: status, note }] } : x));
+    let orders = db.orders;
+    if (status === "Resolved" && r.type === "Return") {
+      const o = db.orders.find((x) => x.id === r.orderId);
+      if (o && o.items.length === 1 && o.items[0].qty === r.item.qty) orders = db.orders.map((x) => (x.id === o.id ? { ...x, status: "Returned" as Status } : x));
+    }
+    commit(withLog({ ...db, returns, orders, products: db.products.map(adj) }, `${r.id} → ${rLabel(status, r.type)}`, "ship"));
+  },
+  removeReturn(id: string) {
+    commit(withLog({ ...db, returns: (db.returns ?? []).filter((x) => x.id !== id) }, `${id} deleted`, "edit"));
   },
   reset() {
     commit(seed());
