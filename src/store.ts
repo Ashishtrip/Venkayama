@@ -10,7 +10,7 @@ export const FLOW: Status[] = ["Placed", "Printing", "Packed", "Shipped", "Deliv
 export type OrderItem = { name: string; size: string; qty: number; price: number };
 export type Order = {
   id: string; customer: string; phone: string; city: string; address: string; items: OrderItem[];
-  amount: number; pay: "UPI" | "Card"; status: Status; createdAt: number; note: string; promo?: string;
+  amount: number; pay: "UPI" | "Card"; status: Status; createdAt: number; note: string; promo?: string; track?: string;
 };
 export type Promo = { id: string; code: string; desc: string; type: "flat" | "percent"; value: number; used: number; cap: number; on: boolean };
 export type Zone = { id: string; name: string; days: string; fee: number; freeAbove: number };
@@ -30,6 +30,11 @@ export const stockLabel = (p: Product) => {
   const t = totalStock(p);
   if (p.price === 0) return "COMING SOON";
   return t === 0 ? "SOLD OUT" : t <= 30 ? `LIMITED [${t} PCS]` : "IN STOCK";
+};
+export const newTrackCode = (taken: string[] = []) => {
+  let c = "";
+  do { c = Array.from(crypto.getRandomValues(new Uint8Array(5)), (b) => b.toString(16).padStart(2, "0")).join("").toUpperCase(); } while (taken.includes(c));
+  return c;
 };
 export const itemsText = (o: Order) => o.items.map((i) => `${i.name}${i.qty > 1 ? ` ×${i.qty}` : ""} (${i.size})`).join(", ");
 
@@ -171,7 +176,7 @@ export const actions = {
     return `VNK-${db.counter}`;
   },
   placeOrder(o: Omit<Order, "id" | "createdAt" | "status" | "note">, status: Status = "Placed"): Order {
-    const order: Order = { ...o, id: `VNK-${db.counter}`, createdAt: Date.now(), status, note: "" };
+    const order: Order = { ...o, id: `VNK-${db.counter}`, track: newTrackCode(db.orders.map((x) => x.track ?? "")), createdAt: Date.now(), status, note: "" };
     const products = db.products.map((p) => {
       const lines = o.items.filter((i) => i.name === p.name);
       if (!lines.length) return p;

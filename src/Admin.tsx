@@ -200,7 +200,7 @@ function OrderForm({ initial, onClose }: { initial?: Order; onClose: () => void 
     e.preventDefault();
     if (!o.customer.trim()) return setErr("Customer name is required.");
     if (o.items.length === 0) return setErr("Add at least one item.");
-    if (initial) actions.save("orders", { ...o, id: initial.id, createdAt: initial.createdAt! } as Order, initial.id);
+    if (initial) actions.save("orders", { ...o, id: initial.id, createdAt: initial.createdAt!, track: initial.track } as Order, initial.id);
     else actions.placeOrder({ customer: o.customer, phone: o.phone, city: o.city, address: o.address, items: o.items, amount: o.amount, pay: o.pay }, o.status);
     onClose();
   };
@@ -399,7 +399,7 @@ export default function Admin({ onSignOut, userEmail }: { onSignOut?: () => void
     { l: "Low-stock sizes", v: String(lowStock.length), s: null, up: lowStock.length <= 4 },
   ];
 
-  const shown = orders.filter((o) => (filter === "All" || o.status === filter) && (q === "" || `${o.id} ${o.customer} ${o.city} ${o.phone} ${itemsText(o)}`.toLowerCase().includes(q.toLowerCase())));
+  const shown = orders.filter((o) => (filter === "All" || o.status === filter) && (q === "" || `${o.id} ${o.track ?? ""} ${o.customer} ${o.city} ${o.phone} ${itemsText(o)}`.toLowerCase().includes(q.toLowerCase())));
   const pshown = products.filter((p) => `${p.name} ${p.sku} ${p.cat}`.toLowerCase().includes(pq.toLowerCase()));
 
   const customers = useMemo(() => {
@@ -582,7 +582,7 @@ export default function Admin({ onSignOut, userEmail }: { onSignOut?: () => void
                     const nx = nextStatus(o);
                     return (
                       <tr key={o.id} className="border-b border-black/10 hover:bg-neutral-50">
-                        <td className={`${mono} px-2 py-3 text-[11px] font-bold`}>{o.id}</td>
+                        <td className={`${mono} px-2 py-3 text-[11px] font-bold`}>{o.id}{o.track && <span className="mt-1 block select-all text-[9px] font-normal tracking-wider text-neutral-500">{o.track}</span>}</td>
                         <td className="px-2 py-3"><p className="font-bold">{o.customer}</p><p className={`${mono} text-[9px] text-neutral-500`}>{[o.city, o.phone].filter(Boolean).join(" · ")}</p></td>
                         <td className="max-w-[260px] px-2 py-3 text-[13px]">{itemsText(o)}</td>
                         <td className={`${mono} px-2 py-3 text-[12px] font-bold`}>{inr(o.amount)}</td>

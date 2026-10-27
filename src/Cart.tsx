@@ -25,6 +25,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [view, setView] = useState<View>("cart");
   const [pay, setPay] = useState<"UPI" | "Card">("UPI");
   const [orderId, setOrderId] = useState("");
+  const [trackCode, setTrackCode] = useState("");
   const [stage, setStage] = useState<null | "loading" | "done">(null);
   const [progress, setProgress] = useState(0);
   const [paid, setPaid] = useState(0);
@@ -88,7 +89,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       city: String(f.get("city")), pay, amount: total, promo: applied || undefined,
       items: lines.map((l) => ({ name: l.name, size: l.size, qty: l.qty, price: l.price })),
     });
-    setOrderId(order.id);
+    setOrderId(order.id); setTrackCode(order.track ?? "");
     setPaid(total);
     setApplied(""); setCode(""); setCodeMsg("");
     setLines([]);
@@ -281,6 +282,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             <div className="mt-10 animate-[fadeUp_.8s_cubic-bezier(.22,1,.36,1)_both]">
               <h2 className={`${disp} text-[clamp(3.5rem,12vw,8rem)] leading-[0.9]`}>Order placed</h2>
               <p className={`${mono} mt-4 text-[11px] tracking-[0.2em] text-black/60`}>Ref {orderId} • {inr(paid)} • Dispatch from Chennai in 24h</p>
+              {trackCode && <p className={`${mono} mt-3 text-[11px] font-bold tracking-[0.2em]`}>Tracking code <span className="select-all border-2 border-black px-2 py-1">{trackCode}</span></p>}
               <button onClick={() => setStage(null)} className={`${mono} mt-8 bg-black px-8 py-4 text-[11px] font-bold tracking-[0.15em] text-white transition hover:bg-neutral-800`}>Keep shopping</button>
             </div>
           )}

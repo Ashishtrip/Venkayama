@@ -76,24 +76,24 @@ export function TrackOrder() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const clean = id.trim().toUpperCase();
-    if (!/^VNK-\d{3,6}$/.test(clean) || phone.replace(/\D/g, "").length < 10) { setRes("bad"); return; }
-    const o = getDB().orders.find((x) => x.id === clean);
+    if (!/^(VNK-\d{3,6}|[0-9A-F]{10})$/.test(clean) || phone.replace(/\D/g, "").length < 10) { setRes("bad"); return; }
+    const o = getDB().orders.find((x) => x.id === clean || x.track === clean);
     const digits = (v: string) => v.replace(/\D/g, "").slice(-10);
     setRes(o && (!o.phone || digits(o.phone) === digits(phone)) ? o : "none");
   };
   const field = "w-full border border-black bg-white px-4 py-3.5 text-sm outline-none focus:ring-2 focus:ring-black";
   return (
     <>
-      <Head kicker="Assistance // Shipment status" title="Track order" note="Enter the reference from your confirmation, for example VNK-2480." />
+      <Head kicker="Assistance // Shipment status" title="Track order" note="Enter the tracking code from your confirmation." />
       <Block>
         <div className="grid gap-12 lg:grid-cols-[1fr_1.3fr]">
           <form onSubmit={submit} className="space-y-4 self-start border-2 border-black p-6">
             <label className="block"><span className={`${mono} mb-2 block text-[10px] font-bold tracking-[0.15em]`}>Order reference</span>
-              <input value={id} onChange={(e) => setId(e.target.value)} placeholder="VNK-2480" className={field} /></label>
+              <input value={id} onChange={(e) => setId(e.target.value)} placeholder="Tracking code, e.g. 3FA91C07BE" className={field} /></label>
             <label className="block"><span className={`${mono} mb-2 block text-[10px] font-bold tracking-[0.15em]`}>Phone used at checkout</span>
               <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="98765 43210" className={field} /></label>
             <button className={`${mono} w-full bg-black py-4 text-[11px] font-bold tracking-[0.15em] text-white transition hover:bg-neutral-800`}>Track</button>
-            {res === "bad" && <p role="alert" className={`${mono} text-[10px] tracking-[0.1em] text-red-700`}>Check the reference (VNK-####) and a 10 digit phone number.</p>}
+            {res === "bad" && <p role="alert" className={`${mono} text-[10px] tracking-[0.1em] text-red-700`}>Check the tracking code (10 hex characters) and a 10 digit phone number.</p>}
             {res === "none" && <p role="alert" className={`${mono} text-[10px] tracking-[0.1em] text-red-700`}>No order found for that reference and phone number.</p>}
           </form>
           <div>
