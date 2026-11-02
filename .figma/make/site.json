@@ -1,11 +1,14 @@
 {
-  "title": "Venkayam",
-  "description": "Showcases a logo with a transparent background featuring a smooth, slow wiggle animation on the onion tip and subtle overall movement for engaging visuals.",
+  "title": "Venkayam India | Tamil streetwear",
+  "description": "Venkayam India is a Tamil avant-garde streetwear label. Heavyweight combed-cotton tees, limited drops and 36 graphic designs, shipped across India.",
   "robots": {
-    "index": false
+    "index": true
   },
   "accessibility": {
     "addBypassLinks": false,
     "ignoreReducedMotion": false
+  },
+  "icons": {
+    "icon": "/favicon.png"
   }
 }

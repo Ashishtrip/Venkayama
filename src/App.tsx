@@ -3,7 +3,7 @@ import OnionLogo from "./components/OnionLogo";
 import Cooking from "./components/Cooking";
 import AdminGate from "./AdminGate";
 import { Lookbook, TrackOrder, Shipping, Returns, SizeMatrix } from "./Pages";
-import { useDB, imgSrc, stockLabel, offLabel, type Product } from "./store";
+import { STUDIO, useDB, imgSrc, stockLabel, offLabel, type Product } from "./store";
 import AuthPage, { useSession, displayName } from "./Auth";
 import { getSupabase } from "./lib/supabase";
 import { CartProvider, useCart } from "./Cart";
@@ -285,7 +285,7 @@ function ProductPage({ id }: { id: string }) {
   const acc: [string, string][] = [
     ["Details", p.description || d.blurb],
     ["Fit & sizing", d.fit],
-    ["Shipping & returns", "Free shipping above ₹999, otherwise ₹79. Dispatched from Chennai within 24 hours. 7-day easy returns on unworn pieces."],
+    ["Shipping & returns", "Free shipping above ₹999, otherwise ₹79. Dispatched from New Delhi within 24 hours. 7-day easy returns on unworn pieces."],
   ];
   return (
     <>
@@ -455,7 +455,8 @@ function Footer() {
           </div>
           <p className={`${mono} mt-5 text-[10px] tracking-[0.15em] text-white/60`}>Tamil avant-garde streetwear archive // Est. 2024</p>
           <p className="mt-3 max-w-sm text-sm text-white/70">Uncompromising luxury engineered from the raw visual grammar of North Chennai cinema hoardings, stencil grit, and heavyweight textile architecture.</p>
-          <p className={`${mono} mt-5 text-[10px] leading-5 tracking-wider text-white/50`}>Spec: 450GSM French terry • Drop zero four live<br />Location: Chennai 600001 • Worldwide courier</p>
+          <address className={`${mono} mt-5 text-[10px] not-italic leading-5 tracking-wider text-white/50`}>Studio &amp; returns<br />{STUDIO.lines.map((l) => <span key={l}>{l}<br /></span>)}</address>
+          <p className={`${mono} mt-5 text-[10px] leading-5 tracking-wider text-white/50`}>Spec: 450GSM French terry • Drop zero four live<br />Location: New Delhi 110091 • Worldwide courier</p>
         </div>
         {cols.map(([h, l]) => (
           <div key={h}>
@@ -684,6 +685,13 @@ function About() {
         </div>
       </section>
       <Manifesto />
+      <section className="border-b border-black/10 px-6 py-16">
+        <div className="mx-auto grid max-w-[1500px] gap-8 md:grid-cols-3">
+          <div><p className={`${mono} text-[10px] tracking-[0.2em] text-neutral-500`}>Visit & contact</p><h2 className={`${disp} mt-2 text-5xl leading-none`}>The studio</h2></div>
+          <address className="text-sm not-italic leading-relaxed text-neutral-700">{STUDIO.lines.map((l) => <span key={l} className="block">{l}</span>)}<span className={`${mono} mt-2 block text-[10px] tracking-[0.15em] text-neutral-500`}>Plus code {STUDIO.plusCode}</span></address>
+          <div className="text-sm text-neutral-700"><a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(STUDIO.plusCode + " New Delhi")}`} target="_blank" rel="noreferrer" className={`${mono} inline-block bg-black px-6 py-3.5 text-[11px] font-bold tracking-[0.15em] text-white`}>Open in Maps</a><p className="mt-4"><a href="mailto:care@venkayam.in" className="underline">care@venkayam.in</a></p></div>
+        </div>
+      </section>
       <section className="bg-neutral-50 px-6 py-20">
         <div className="mx-auto max-w-[1500px]">
           <h2 className={`${disp} mb-8 border-b-2 border-black pb-4 text-5xl leading-none md:text-6xl`}>How it&apos;s made</h2>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Cooking from "./components/Cooking";
-import { actions, exchangeOnly, FLOW, getDB, imgSrc, itemsText, returnEligibility, RFLOW, rLabel, RNOTES, useDB, type Order, type ReturnReq, type RStatus } from "./store";
+import { STUDIO, actions, exchangeOnly, FLOW, getDB, imgSrc, itemsText, returnEligibility, RFLOW, rLabel, RNOTES, useDB, type Order, type ReturnReq, type RStatus } from "./store";
 
 const mono = "font-mono uppercase";
 const disp = "font-display uppercase";
@@ -67,7 +67,7 @@ export function Lookbook() {
 
 /* ---------- Track order ---------- */
 const STEPS: string[] = FLOW;
-const NOTES = ["Order confirmed", "Graphics being screen-printed", "Packed at Chennai studio", "With courier, on the way", "Delivered to your door"];
+const NOTES = ["Order confirmed", "Graphics being screen-printed", "Packed at New Delhi studio", "With courier, on the way", "Delivered to your door"];
 
 export function TrackOrder() {
   const [id, setId] = useState("");
@@ -138,7 +138,7 @@ export function Shipping() {
   const st = useDB((d) => d.settings);
   return (
     <>
-      <Head kicker="Assistance // Domestic only" title="Domestic shipping" note="Pan-India delivery from our Chennai studio. International shipping is not available yet." />
+      <Head kicker="Assistance // Domestic only" title="Domestic shipping" note="Pan-India delivery from our New Delhi studio. International shipping is not available yet." />
       <Block>
         <div className="mb-14 grid gap-px bg-black/10 sm:grid-cols-3">
           {[["24h", "Dispatch time", "Orders placed before 4 PM leave the studio the same working day."], [`₹${st.freeShip.toLocaleString("en-IN")}`, "Free shipping", "Cart value above this ships free to most of India."], ["UPI", "Secure payment", "Pay by UPI or card at checkout. Cash on delivery is not offered."]].map(([n, t, d]) => (
@@ -325,6 +325,7 @@ export function Returns() {
         <div className="mt-14 grid gap-12 lg:grid-cols-2">
           <div>
             <h2 className={`${disp} mb-5 text-4xl leading-none`}>The rules</h2>
+            <address className="mb-6 border-l-2 border-black pl-4 text-sm not-italic leading-relaxed text-neutral-700"><span className={`${mono} block text-[10px] font-bold tracking-[0.15em]`}>Return address</span>{STUDIO.lines.map((l) => <span key={l} className="block">{l}</span>)}<span className="block text-xs text-neutral-500">Please wait for our courier pickup. Do not post pieces yourself.</span></address>
             <ul className="space-y-3 text-sm leading-relaxed text-neutral-700">
               {["Return or exchange within 7 days of delivery.", "First size exchange is free. Further ones cost ₹79 shipping.", "Refunds go to the original payment method.", "Drop pieces and customised items are exchange-only.", "Sale items can be exchanged, not refunded.", "Worn, washed or altered pieces cannot be accepted."].map((t) => <li key={t} className="flex gap-3"><span className="mt-2 size-1.5 shrink-0 bg-black" />{t}</li>)}
             </ul>

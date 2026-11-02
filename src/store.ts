@@ -26,7 +26,7 @@ export const RNOTES: Record<RStatus, string> = {
   Approved: "Approved. A pickup will be scheduled",
   "Pickup scheduled": "Courier pickup booked from your address",
   "Picked up": "Courier has collected the piece",
-  Received: "Piece reached our Chennai studio and passed inspection",
+  Received: "Piece reached our New Delhi studio and passed inspection",
   Resolved: "Closed",
   Rejected: "Request could not be accepted",
 };
@@ -66,6 +66,12 @@ export const exchangeOnly = (item: OrderItem): boolean => {
   const p = getDB().products.find((x) => x.name === item.name);
   return !!p && (p.drop || p.was > p.price);
 };
+export const STUDIO = {
+  city: "New Delhi",
+  lines: ["Nearby Khan Dairy, Block 21", "Mayur Vihar Phase I, Kalyan Puri", "New Delhi, Delhi 110091"],
+  plusCode: "J886+9PX",
+};
+export const studioOneLine = `${STUDIO.lines.join(", ")} (${STUDIO.plusCode})`;
 export const itemsText = (o: Order) => o.items.map((i) => `${i.name}${i.qty > 1 ? ` ×${i.qty}` : ""} (${i.size})`).join(", ");
 
 const uid = (p: string) => p + Math.random().toString(36).slice(2, 9);
@@ -138,9 +144,9 @@ function seed(): DB {
     products, orders, counter: 1,
     promos: [],
     zones: [
-      { id: uid("z"), name: "Chennai metro", days: "1-2 days", fee: 49, freeAbove: 999 },
+      { id: uid("z"), name: "Delhi NCR", days: "1-2 days", fee: 49, freeAbove: 999 },
       { id: uid("z"), name: "Tamil Nadu, Kerala, Karnataka", days: "2-4 days", fee: 79, freeAbove: 999 },
-      { id: uid("z"), name: "Maharashtra, Telangana, Delhi NCR", days: "3-5 days", fee: 79, freeAbove: 999 },
+      { id: uid("z"), name: "Maharashtra, Telangana, Haryana", days: "3-5 days", fee: 79, freeAbove: 999 },
       { id: uid("z"), name: "Rest of India", days: "5-8 days", fee: 99, freeAbove: 999 },
       { id: uid("z"), name: "North-East & J&K", days: "7-10 days", fee: 149, freeAbove: 1999 },
     ],
