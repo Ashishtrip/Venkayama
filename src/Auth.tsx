@@ -69,12 +69,6 @@ export default function AuthPage({ initial }: { initial: "login" | "signup" }) {
     }
   };
 
-  const oauth = async (provider: "google" | "apple") => {
-    setBusy(provider); setErr("");
-    const { error } = await getSupabase().auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}${window.location.pathname}#/` } });
-    if (error) { setErr(/not enabled|unsupported provider/i.test(error.message) ? `${provider === "google" ? "Google" : "Apple"} sign-in is not switched on for this store yet. Use email and password for now.` : error.message); setBusy(null); }
-  };
-
   const title = mode === "login" ? "Welcome back" : mode === "signup" ? "Join the archive" : "Reset password";
   const sub = mode === "login" ? "Log in to track orders and check out faster." : mode === "signup" ? "Early drop access, order history and faster checkout." : "We will email you a link to set a new one.";
 
@@ -133,12 +127,6 @@ export default function AuthPage({ initial }: { initial: "login" | "signup" }) {
             <button onClick={() => switchTo("login")} className={`${mono} mt-6 text-[10px] font-bold tracking-wider underline`}>← Back to log in</button>
           ) : (
             <>
-              <div className={`${mono} my-6 flex items-center gap-4 text-[10px] tracking-[0.2em] text-neutral-400`}><span className="h-px flex-1 bg-black/15" />or<span className="h-px flex-1 bg-black/15" /></div>
-              <div className="grid grid-cols-2 gap-3">
-                {(["google", "apple"] as const).map((p) => (
-                  <button key={p} type="button" disabled={busy !== null} onClick={() => oauth(p)} className={`${mono} border border-black py-3.5 text-[11px] font-bold tracking-[0.12em] transition hover:bg-black hover:text-white disabled:opacity-60`}>{busy === p ? "Redirecting" : p}</button>
-                ))}
-              </div>
               <p className={`${mono} mt-8 text-center text-[10px] tracking-wider text-neutral-500`}>
                 {mode === "login" ? "New here? " : "Already a member? "}
                 <button onClick={() => switchTo(mode === "login" ? "signup" : "login")} className="font-bold text-black underline">{mode === "login" ? "Create an account" : "Log in"}</button>
