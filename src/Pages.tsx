@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Cooking from "./components/Cooking";
-import { STUDIO, actions, exchangeOnly, FLOW, getDB, imgSrc, itemsText, returnEligibility, RFLOW, rLabel, RNOTES, useDB, type Order, type ReturnReq, type RStatus } from "./store";
+import { NO_RETURNS, STUDIO, actions, exchangeOnly, FLOW, getDB, imgSrc, itemsText, returnEligibility, RFLOW, rLabel, RNOTES, useDB, type Order, type ReturnReq, type RStatus } from "./store";
 
 const mono = "font-mono uppercase";
 const disp = "font-display uppercase";
@@ -291,7 +291,7 @@ function ReturnStatus() {
   const [id, setId] = useState("");
   const [phone, setPhone] = useState("");
   const [res, setRes] = useState<null | ReturnReq | "none">(null);
-  const rs = useDB((d) => d.returns ?? []);
+  const rs = useDB((d) => d.returns ?? NO_RETURNS);
   const live = res && res !== "none" ? rs.find((x) => x.id === res.id) ?? res : res;
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

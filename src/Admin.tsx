@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import OnionLogo from "./components/OnionLogo";
 import {
-  actions, CATS, catLabel, compressImage, FLOW, IMAGES, imgSrc, itemsText, RFLOW, rLabel, sizeKeys, totalStock, useDB,
+  actions, NO_RETURNS, CATS, catLabel, compressImage, FLOW, IMAGES, imgSrc, itemsText, RFLOW, rLabel, sizeKeys, totalStock, useDB,
   type Look, type ReturnReq, type RStatus, type Order, type OrderItem, type Product, type Promo, type Status, type Zone,
 } from "./store";
 
@@ -384,7 +384,7 @@ export default function Admin({ onSignOut, userEmail }: { onSignOut?: () => void
   const promos = useDB((d) => d.promos);
   const zones = useDB((d) => d.zones);
   const looks = useDB((d) => d.looks);
-  const rets = useDB((d) => d.returns ?? []);
+  const rets = useDB((d) => d.returns ?? NO_RETURNS);
   const [rfilter, setRfilter] = useState<RStatus | "All" | "Open">("Open");
   const [rq, setRq] = useState("");
   const settings = useDB((d) => d.settings);

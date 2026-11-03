@@ -66,6 +66,7 @@ export const exchangeOnly = (item: OrderItem): boolean => {
   const p = getDB().products.find((x) => x.name === item.name);
   return !!p && (p.drop || p.was > p.price);
 };
+export const NO_RETURNS: ReturnReq[] = [];
 export const STUDIO = {
   city: "New Delhi",
   lines: ["Nearby Khan Dairy, Block 21", "Mayur Vihar Phase I, Kalyan Puri", "New Delhi, Delhi 110091"],
@@ -141,7 +142,7 @@ function seed(): DB {
     };
   });
   return {
-    products, orders, counter: 1,
+    products, orders, counter: 1, returns: [],
     promos: [],
     zones: [
       { id: uid("z"), name: "Delhi NCR", days: "1-2 days", fee: 49, freeAbove: 999 },
@@ -176,7 +177,7 @@ const commit = (next: DB) => {
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (e) => {
     if (e.key === KEY && e.newValue) {
-      try { db = JSON.parse(e.newValue); emit(); } catch { /* ignore */ }
+      try { const d = JSON.parse(e.newValue) as DB; db = { ...d, returns: d.returns ?? [] }; emit(); } catch { /* ignore */ }
     }
   });
 }
