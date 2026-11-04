@@ -43,6 +43,8 @@ export const catLabel = (c: string) => CATS.find(([k]) => k === c)?.[1] ?? c;
 export const sizeKeys = (cat: string) => (cat === "caps" || cat === "acc" ? ["One size"] : cat === "tees" ? ["XS", "S", "M", "L", "XL"] : ["S", "M", "L", "XL", "XXL"]);
 export const IMAGES = ["f1497.png", "2e222.png", "9bdff.png", "79b1c.png", "83098.png", "62447.png", "99450.png", "ce1cd.png", "37da8.png", "237a4.png"];
 export const imgSrc = (i: string) => (/^(https?:|data:|\/)/.test(i) ? i : `/assets/${i}`);
+// Built-in artwork is shown in black and white; uploaded photos and catalogue shots keep their colour.
+export const isMono = (i: string) => !/^(data:|https?:|\/products\/)/.test(i);
 export const totalStock = (p: Product) => Object.values(p.sizes).reduce((a, b) => a + b, 0);
 export const offLabel = (p: Product) => (p.was > p.price ? `${Math.round(((p.was - p.price) / p.was) * 100)}% OFF` : "");
 export const stockLabel = (p: Product) => {

@@ -1,5 +1,5 @@
 import OnionLogo from "./components/OnionLogo";
-import { actions, discountFor, getDB, imgSrc, useDB } from "./store";
+import { actions, discountFor, getDB, imgSrc, isMono, useDB } from "./store";
 import { projectId, publicAnonKey } from "../utils/supabase/info";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
@@ -198,7 +198,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                     <ul className="divide-y divide-black/10">
                       {lines.map((l) => (
                         <li key={l.key} className="flex gap-4 py-4">
-                          <img src={imgSrc(l.img)} alt="" className="h-24 w-20 shrink-0 bg-neutral-200 object-cover grayscale" />
+                          <img src={imgSrc(l.img)} alt="" className={`h-24 w-20 shrink-0 bg-neutral-200 object-cover ${isMono(l.img) ? "grayscale" : ""}`} />
                           <div className="flex min-w-0 flex-1 flex-col">
                             <p className="text-[13px] font-extrabold uppercase leading-snug">{l.name}</p>
                             <p className={`${mono} mt-1 text-[10px] tracking-wider text-neutral-500`}>Size {l.size}</p>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import OnionLogo from "./components/OnionLogo";
 import {
-  actions, NO_RETURNS, CATS, catLabel, compressImage, FLOW, IMAGES, imgSrc, itemsText, RFLOW, rLabel, sizeKeys, totalStock, useDB,
+  actions, isMono, NO_RETURNS, CATS, catLabel, compressImage, FLOW, IMAGES, imgSrc, itemsText, RFLOW, rLabel, sizeKeys, totalStock, useDB,
   type Look, type ReturnReq, type RStatus, type Order, type OrderItem, type Product, type Promo, type Status, type Zone,
 } from "./store";
 
@@ -148,7 +148,7 @@ function ImagePicker({ value, onChange }: { value: string; onChange: (v: string)
   return (
     <div>
       <div className="flex gap-3">
-        <div className="h-28 w-24 shrink-0 bg-neutral-200">{value && <img src={imgSrc(value)} alt="Selected" className="size-full object-cover grayscale" />}</div>
+        <div className="h-28 w-24 shrink-0 bg-neutral-200">{value && <img src={imgSrc(value)} alt="Selected" className={`size-full object-cover ${isMono(value) ? "grayscale" : ""}`} />}</div>
         <div className="min-w-0 flex-1 space-y-2">
           <input value={value.startsWith("data:") ? "Uploaded image" : value} readOnly={value.startsWith("data:")} onChange={(e) => onChange(e.target.value)} placeholder="Image URL or filename" className={inputCls} />
           <label className={`${btnLine} inline-block cursor-pointer`}>
@@ -764,7 +764,7 @@ export default function Admin({ onSignOut, userEmail }: { onSignOut?: () => void
               {pshown.map((p) => (
                 <article key={p.id} className={`border border-black/15 bg-white p-4 ${p.active ? "" : "opacity-60"}`}>
                   <div className="flex flex-wrap gap-4">
-                    <img src={imgSrc(p.img)} alt="" className="h-28 w-24 shrink-0 bg-neutral-200 object-cover grayscale" />
+                    <img src={imgSrc(p.img)} alt="" className={`h-28 w-24 shrink-0 bg-neutral-200 object-cover ${isMono(p.img) ? "grayscale" : ""}`} />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0">

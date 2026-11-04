@@ -3,7 +3,7 @@ import OnionLogo from "./components/OnionLogo";
 import Cooking from "./components/Cooking";
 import AdminGate from "./AdminGate";
 import { Lookbook, TrackOrder, Shipping, Returns, SizeMatrix } from "./Pages";
-import { STUDIO, useDB, imgSrc, stockLabel, offLabel, type Product } from "./store";
+import { isMono, STUDIO, useDB, imgSrc, stockLabel, offLabel, type Product } from "./store";
 import AuthPage, { useSession, displayName } from "./Auth";
 import { getSupabase } from "./lib/supabase";
 import { CartProvider, useCart } from "./Cart";
@@ -215,7 +215,7 @@ function ProductCard({ p }: { p: Product }) {
   return (
     <article className="group flex flex-col border border-black/10 bg-white">
       <a href={href(p)} aria-label={`View ${p.name}`} className={`relative block aspect-[4/5] overflow-hidden ${isShot(p) ? "bg-[#f1e0d4]" : "bg-neutral-200"}`}>
-        <img src={imgSrc(p.img)} alt={p.name} className={`absolute inset-0 size-full object-cover transition duration-700 group-hover:scale-105 ${isShot(p) ? "origin-center scale-[1.55] object-[18%_50%] group-hover:scale-[1.65]" : "grayscale"}`} />
+        <img src={imgSrc(p.img)} alt={p.name} className={`absolute inset-0 size-full object-cover transition duration-700 group-hover:scale-105 ${isShot(p) ? "origin-center scale-[1.55] object-[18%_50%] group-hover:scale-[1.65]" : isMono(p.img) ? "grayscale" : ""}`} />
         {p.emblem && <img src={A(p.emblem)} alt="" className="absolute left-1/2 top-[48%] w-1/4 -translate-x-1/2 -translate-y-1/2 mix-blend-multiply" />}
         <span className={`${mono} absolute left-3 top-3 bg-white px-2 py-1 text-[9px] font-bold tracking-[0.1em]`}>{p.tag}</span>
         <span className={`${mono} absolute bottom-3 left-3 bg-black px-2 py-1 text-[9px] font-bold tracking-[0.1em] text-white`}>{p.badge}</span>
@@ -302,7 +302,7 @@ function ProductPage({ id }: { id: string }) {
           <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
             <div className="lg:sticky lg:top-28 lg:self-start">
             <div className={`relative overflow-hidden ${cur.startsWith("/products/") ? "aspect-[461/343] bg-[#f1e0d4]" : "aspect-[4/5] bg-neutral-200"}`}>
-              <img src={imgSrc(cur)} alt={p.name} className={`absolute inset-0 size-full object-cover ${cur.startsWith("/products/") ? "" : "grayscale"}`} />
+              <img src={imgSrc(cur)} alt={p.name} className={`absolute inset-0 size-full object-cover ${isMono(cur) ? "grayscale" : ""}`} />
               {p.emblem && shot === 0 && <img src={A(p.emblem)} alt="" className="absolute left-1/2 top-[48%] w-1/4 -translate-x-1/2 -translate-y-1/2 mix-blend-multiply" />}
               <span className={`${mono} absolute left-4 top-4 bg-white px-3 py-1.5 text-[10px] font-bold tracking-[0.1em]`}>{p.tag}</span>
               <span className={`${mono} absolute bottom-4 left-4 bg-black px-3 py-1.5 text-[10px] font-bold tracking-[0.1em] text-white`}>{p.badge}</span>
