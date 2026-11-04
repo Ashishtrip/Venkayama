@@ -42,9 +42,10 @@ export const CATS: [string, string][] = [["tees", "Tees"], ["hoodies", "Hoodies"
 export const catLabel = (c: string) => CATS.find(([k]) => k === c)?.[1] ?? c;
 export const sizeKeys = (cat: string) => (cat === "caps" || cat === "acc" ? ["One size"] : cat === "tees" ? ["XS", "S", "M", "L", "XL"] : ["S", "M", "L", "XL", "XXL"]);
 export const IMAGES = ["f1497.png", "2e222.png", "9bdff.png", "79b1c.png", "83098.png", "62447.png", "99450.png", "ce1cd.png", "37da8.png", "237a4.png"];
-export const imgSrc = (i: string) => (/^(https?:|data:|\/)/.test(i) ? i : `/assets/${i}`);
+const mediaUrls = new Map<string, string>();
+export const imgSrc = (i: string) => (i.startsWith("idb:") ? mediaUrls.get(i) ?? "" : /^(https?:|data:|\/)/.test(i) ? i : `/assets/${i}`);
 // Built-in artwork is shown in black and white; uploaded photos and catalogue shots keep their colour.
-export const isMono = (i: string) => !/^(data:|https?:|\/products\/)/.test(i);
+export const isMono = (i: string) => !/^(data:|idb:|https?:|\/products\/)/.test(i);
 export const totalStock = (p: Product) => Object.values(p.sizes).reduce((a, b) => a + b, 0);
 export const offLabel = (p: Product) => (p.was > p.price ? `${Math.round(((p.was - p.price) / p.was) * 100)}% OFF` : "");
 export const stockLabel = (p: Product) => {
@@ -291,6 +292,62 @@ export function discountFor(code: string, subtotal: number): { promo?: Promo; am
   return { promo: c, amount };
 }
 
+/* ---------- Uploaded media: stored in IndexedDB (hundreds of MB) instead of localStorage (~5 MB) ---------- */
+const MEDIA_DB = "venkayam-media";
+const openMedia = (): Promise<IDBDatabase> =>
+  new Promise((resolve, reject) => {
+    const r = indexedDB.open(MEDIA_DB, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("img");
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+const idbPut = async (key: string, blob: Blob) => {
+  const d = await openMedia();
+  await new Promise<void>((res, rej) => { const t = d.transaction("img", "readwrite"); t.objectStore("img").put(blob, key); t.oncomplete = () => res(); t.onerror = () => rej(t.error); });
+  d.close();
+};
+const dataToBlob = async (u: string) => (await fetch(u)).blob();
+
+export const saveMedia = async (blob: Blob): Promise<string> => {
+  const key = `idb:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  await idbPut(key, blob);
+  mediaUrls.set(key, URL.createObjectURL(blob));
+  return key;
+};
+
+/** Loads stored photos into memory and moves any old inline (data:) photos out of localStorage. Call once before rendering. */
+export async function initMedia(): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  try {
+    navigator.storage?.persist?.();
+    const d = await openMedia();
+    await new Promise<void>((res) => {
+      const t = d.transaction("img", "readonly");
+      const st = t.objectStore("img");
+      const keys = st.getAllKeys(); const vals = st.getAll();
+      t.oncomplete = () => { (keys.result as string[]).forEach((k, i) => mediaUrls.set(k, URL.createObjectURL(vals.result[i] as Blob))); res(); };
+      t.onerror = () => res();
+    });
+    d.close();
+    // Migrate photos that were saved inline before this change.
+    const moved = new Map<string, string>();
+    const move = async (v: string) => {
+      if (!v.startsWith("data:")) return v;
+      if (!moved.has(v)) moved.set(v, await saveMedia(await dataToBlob(v)));
+      return moved.get(v)!;
+    };
+    let changed = false;
+    const products = await Promise.all(db.products.map(async (p) => {
+      const img = await move(p.img);
+      const gallery = p.gallery ? await Promise.all(p.gallery.map(move)) : p.gallery;
+      if (img !== p.img || gallery !== p.gallery) changed = true;
+      return { ...p, img, gallery };
+    }));
+    const looks = await Promise.all(db.looks.map(async (l) => { const img = await move(l.img); if (img !== l.img) changed = true; return { ...l, img }; }));
+    if (changed) commit({ ...db, products, looks });
+  } catch { /* media store unavailable: uploads fall back to inline images */ }
+}
+
 export const compressImage = (file: File, max = 1600): Promise<string> =>
   new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -304,7 +361,10 @@ export const compressImage = (file: File, max = 1600): Promise<string> =>
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(im, 0, 0, c.width, c.height);
       URL.revokeObjectURL(url);
-      resolve(c.toDataURL("image/jpeg", 0.92));
+      c.toBlob(async (blob) => {
+        if (!blob) return reject(new Error("Could not encode image"));
+        try { resolve(await saveMedia(blob)); } catch { resolve(c.toDataURL("image/jpeg", 0.85)); }
+      }, "image/jpeg", 0.92);
     };
     im.onerror = () => reject(new Error("Not an image"));
     im.src = url;

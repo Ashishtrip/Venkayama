@@ -150,7 +150,7 @@ function ImagePicker({ value, onChange }: { value: string; onChange: (v: string)
       <div className="flex gap-3">
         <div className="h-28 w-24 shrink-0 bg-neutral-200">{value && <img src={imgSrc(value)} alt="Selected" className={`size-full object-cover ${isMono(value) ? "grayscale" : ""}`} />}</div>
         <div className="min-w-0 flex-1 space-y-2">
-          <input value={value.startsWith("data:") ? "Uploaded image" : value} readOnly={value.startsWith("data:")} onChange={(e) => onChange(e.target.value)} placeholder="Image URL or filename" className={inputCls} />
+          <input value={/^(data|idb):/.test(value) ? "Uploaded image" : value} readOnly={/^(data|idb):/.test(value)} onChange={(e) => onChange(e.target.value)} placeholder="Image URL or filename" className={inputCls} />
           <label className={`${btnLine} inline-block cursor-pointer`}>
             Upload image
             <input type="file" accept="image/*" className="sr-only" onChange={(e) => upload(e.target.files?.[0])} />
