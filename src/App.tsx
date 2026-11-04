@@ -19,13 +19,13 @@ const go = (path: string) => `#${path}`;
 const trust = [
   [A("c7929.svg"), "FREE SHIPPING", "ON ORDERS ABOVE ₹999"],
   [A("3d926.svg"), "EASY RETURNS", "7 DAYS RETURN POLICY"],
-  [A("6221c.svg"), "280+ GSM COTTON", "HEAVYWEIGHT & PRE-SHRUNK"],
+  [A("6221c.svg"), "SRI LANKAN COTTON", "MADE IN INDIA & PRE-SHRUNK"],
   [A("b5863.svg"), "SECURE PAYMENTS", "UPI & CARDS ACCEPTED"],
 ];
 
 const depts = [
   { n: "01 // HEAVY DROP", t: ["T-", "SHIRTS"], img: "99450.png", cat: "tees" },
-  { n: "02 // 450 GSM", t: ["HOODIES"], img: "ce1cd.png", cat: "hoodies" },
+  { n: "02 // HEAVY TERRY", t: ["HOODIES"], img: "ce1cd.png", cat: "hoodies" },
   { n: "03 // SNAPBACKS & 5-PANELS", t: ["CAPS"], img: "37da8.png", cat: "caps" },
   { n: "04 // RAW MERCH", t: ["TOTES"], img: "237a4.png", cat: "acc" },
 ];
@@ -103,7 +103,7 @@ function Hero() {
           <div className="mb-6 flex items-end gap-5">
             <OnionLogo className="h-[150px] md:h-[190px]" />
             <div className={`${mono} border border-black/20 bg-white px-3 py-2 text-[9px] font-bold leading-4 tracking-[0.12em]`}>
-              Original Chennai<br />Merch<br />[Archive No. 2024]
+              Original Chennai<br />Merch<br />[Archive No. 2023]
             </div>
           </div>
           <h1 className={`${disp} text-[72px] leading-[0.88] tracking-tight md:text-[104px]`}>
@@ -112,7 +112,7 @@ function Hero() {
           </h1>
           <p className={`${mono} mt-5 text-[12px] font-bold tracking-[0.15em]`}>Desi roots • Kollywood soul • Street wear attitude</p>
           <p className="mt-4 max-w-md text-[15px] leading-relaxed text-neutral-700">
-            Forged in the visceral heat of North Chennai cinema hoardings, painted tea-stall typography, and unyielding 280-450 GSM combed cotton.
+            Forged in the visceral heat of North Chennai cinema hoardings, painted tea-stall typography, and unyielding Sri Lankan combed cotton, made in India.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <a href={go("/shop")} className={`${mono} flex items-center gap-3 bg-black px-6 py-3.5 text-[11px] font-bold tracking-[0.15em] text-white transition hover:gap-5`}>Shop collection <Arrow invert /></a>
@@ -125,7 +125,7 @@ function Hero() {
           <article className="relative h-[480px] overflow-hidden border border-black/10 bg-neutral-200 shadow-xl lg:h-[620px]">
             <img src={A("5b6d9.png")} alt="Model in a Tamil Noir oversized tee" className="absolute inset-0 size-full object-cover grayscale" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent" />
-            <span className={`${mono} absolute left-4 top-4 border border-black/10 bg-white/95 px-3 py-1.5 text-[9px] font-bold tracking-[0.1em]`}>Heavyweight 280 GSM Oversoul</span>
+            <span className={`${mono} absolute left-4 top-4 border border-black/10 bg-white/95 px-3 py-1.5 text-[9px] font-bold tracking-[0.1em]`}>Heavyweight Oversoul</span>
             <div className="absolute inset-x-6 bottom-6 flex items-end justify-between text-white">
               <div>
                 <p className={`${mono} mb-2 text-[10px] tracking-[0.2em] text-white/70`}>Series 004 // Hero spec</p>
@@ -144,7 +144,7 @@ function Hero() {
               <p className={`${mono} mt-2 text-xs font-bold`}>₹2,999</p>
             </div>
             <div className="absolute right-4 top-14 flex size-24 items-center justify-center rounded-full bg-white/95 p-3 text-center shadow-lg">
-              <span className={`${mono} text-[7px] font-bold leading-tight tracking-wider`}>Official seal of authenticity<br />100% combed Tiruppur heavy cotton</span>
+              <span className={`${mono} text-[7px] font-bold leading-tight tracking-wider`}>Official seal of authenticity<br />100% Sri Lankan cotton, made in India</span>
             </div>
           </article>
         </div>
@@ -250,8 +250,8 @@ function ProductCard({ p }: { p: Product }) {
 }
 
 const details: Record<string, { blurb: string; specs: [string, string][]; fit: string }> = {
-  tees: { blurb: "Cut boxy and dropped at the shoulder, pre-shrunk and garment-washed so the fit holds after the first wash. Screen-printed in Chennai with plastisol ink that cracks beautifully with age.", fit: "Oversized. Take your usual size for the intended drape, size down for a regular fit.", specs: [["Fabric", "100% combed cotton, 260-280 GSM"], ["Print", "Plastisol screen print"], ["Finish", "Pre-shrunk, enzyme washed"], ["Made in", "Tiruppur, India"]] },
-  hoodies: { blurb: "A 450 GSM brushed-back terry hoodie with a double-layered hood, ribbed cuffs and the onion monogram embroidered at the chest. Heavy enough to stand on its own.", fit: "Relaxed with a slightly cropped body. Size up for a longer, oversized look.", specs: [["Fabric", "100% cotton terry, 450 GSM"], ["Branding", "Embroidered monogram"], ["Hood", "Double layered, flat drawcord"], ["Made in", "Tiruppur, India"]] },
+  tees: { blurb: "Cut boxy and dropped at the shoulder, pre-shrunk and garment-washed so the fit holds after the first wash. Screen-printed in Chennai with plastisol ink that cracks beautifully with age.", fit: "Oversized. Take your usual size for the intended drape, size down for a regular fit.", specs: [["Fabric", "100% Sri Lankan combed cotton, made in India"], ["Print", "Plastisol screen print"], ["Finish", "Pre-shrunk, enzyme washed"], ["Made in", "Tiruppur, India"]] },
+  hoodies: { blurb: "A brushed-back terry hoodie with a double-layered hood, ribbed cuffs and the onion monogram embroidered at the chest. Heavy enough to stand on its own.", fit: "Relaxed with a slightly cropped body. Size up for a longer, oversized look.", specs: [["Fabric", "100% cotton terry"], ["Branding", "Embroidered monogram"], ["Hood", "Double layered, flat drawcord"], ["Made in", "Tiruppur, India"]] },
   caps: { blurb: "A structured five-panel cap in washed cotton canvas with a tonal embroidered onion, curved brim and a brass-buckle adjustable strap.", fit: "One size. The strap fits head circumference of 54 to 62 cm.", specs: [["Fabric", "Washed cotton canvas"], ["Crown", "Structured, 5-panel"], ["Closure", "Adjustable brass buckle"], ["Made in", "Tiruppur, India"]] },
   acc: { blurb: "A 16 oz duck canvas tote with reinforced stitching and a screen-printed onion emblem. Carries a laptop and a week of groceries without complaint.", fit: "One size. 38 cm wide, 40 cm tall, 12 cm gusset, 28 cm handle drop.", specs: [["Fabric", "16 oz duck canvas"], ["Capacity", "Approx. 18 litres"], ["Handles", "Double-stitched cotton webbing"], ["Made in", "Tiruppur, India"]] },
 };
@@ -398,7 +398,7 @@ function Manifesto() {
           <div className="absolute inset-x-6 bottom-6">
             <p className={`${mono} mb-2 text-[10px] tracking-[0.2em] text-white/70`}>Manifesto excerpt</p>
             <p className={`${disp} text-3xl leading-tight md:text-4xl`}>"We wear our roots like armor."</p>
-            <p className={`${mono} mt-2 text-[10px] tracking-wider text-white/80`}>No fast fashion. No plastic blends. Pure heavy combed Tiruppur threads.</p>
+            <p className={`${mono} mt-2 text-[10px] tracking-wider text-white/80`}>No fast fashion. No plastic blends. Pure heavy Sri Lankan cotton, made in India.</p>
           </div>
         </div>
         <div>
@@ -442,7 +442,7 @@ function Footer() {
         <div className={`${mono} marquee flex w-max gap-8 whitespace-nowrap text-[10px] tracking-[0.2em]`}>
           {[0, 1].map((k) => (
             <span key={k} className="flex gap-8">
-              {["Free shipping on orders over ₹999", "Secure UPI & card payments", "100% heavyweight combed cotton", "Raw Chennai streetwear luxury"].map((t) => <span key={t}>{t} •</span>)}
+              {["Free shipping on orders over ₹999", "Secure UPI & card payments", "Sri Lankan cotton, made in India", "Raw Chennai streetwear luxury"].map((t) => <span key={t}>{t} •</span>)}
             </span>
           ))}
         </div>
@@ -453,10 +453,10 @@ function Footer() {
             <span className="rounded bg-white p-2"><OnionLogo className="h-20" /></span>
             <h2 className={`${disp} text-3xl leading-[0.9]`}>Venkayam<br />India</h2>
           </div>
-          <p className={`${mono} mt-5 text-[10px] tracking-[0.15em] text-white/60`}>Tamil avant-garde streetwear archive // Est. 2024</p>
+          <p className={`${mono} mt-5 text-[10px] tracking-[0.15em] text-white/60`}>Tamil avant-garde streetwear archive // Est. 2023</p>
           <p className="mt-3 max-w-sm text-sm text-white/70">Uncompromising luxury engineered from the raw visual grammar of North Chennai cinema hoardings, stencil grit, and heavyweight textile architecture.</p>
           <address className={`${mono} mt-5 text-[10px] not-italic leading-5 tracking-wider text-white/50`}>Studio &amp; returns<br />{STUDIO.lines.map((l) => <span key={l}>{l}<br /></span>)}</address>
-          <p className={`${mono} mt-5 text-[10px] leading-5 tracking-wider text-white/50`}>Spec: 450GSM French terry • Drop zero four live<br />Location: New Delhi 110091 • Worldwide courier</p>
+          <p className={`${mono} mt-5 text-[10px] leading-5 tracking-wider text-white/50`}>Spec: Sri Lankan cotton French terry • Drop zero four live<br />Location: New Delhi 110091 • Worldwide courier</p>
         </div>
         {cols.map(([h, l]) => (
           <div key={h}>
@@ -475,9 +475,9 @@ function Footer() {
         </div>
       </div>
       <div className={`${mono} flex flex-wrap justify-between gap-3 border-t border-white/15 px-6 py-5 text-[9px] tracking-[0.15em] text-white/50`}>
-        <span>© 2024 Venkayam India Clothing Corp. All rights reserved.</span>
-        <span>Culture: Chennai • Manufacture: Tiruppur • Curation: Global</span>
-        <a href="#/admin" className="hover:text-white">[VENKAYAM//ARCHIVE-2024] • Admin</a>
+        <span>© 2023 Venkayam India Clothing Corp. All rights reserved.</span>
+        <span>Culture: Chennai • Manufacture: India • Curation: Global</span>
+        <a href="#/admin" className="hover:text-white">[VENKAYAM//ARCHIVE-2023] • Admin</a>
       </div>
     </footer>
   );
@@ -555,7 +555,7 @@ function Home() {
         <div className="mx-auto grid max-w-[1500px] items-center gap-8 lg:grid-cols-2">
           <h2 className={`${disp} text-[clamp(3rem,7vw,6rem)] leading-[0.95]`}>We wear our roots like armor.</h2>
           <div>
-            <p className="max-w-lg text-[15px] leading-relaxed text-white/70">Born on the asphalt corridors of Chennai. Heavy combed Tiruppur cotton, stencil grit, and the raw weight of Tamil cinema hoardings.</p>
+            <p className="max-w-lg text-[15px] leading-relaxed text-white/70">Born on the asphalt corridors of Chennai. Heavy Sri Lankan cotton made in India, stencil grit, and the raw weight of Tamil cinema hoardings.</p>
             <div className="mt-6"><Cta to="/about" label="Read our story" invert /></div>
           </div>
         </div>
@@ -575,7 +575,7 @@ function Shop({ cat }: { cat: string }) {
     .sort((a, b) => (sort === "low" ? a.price - b.price : sort === "high" ? b.price - a.price : sort === "off" ? b.was - b.price - (a.was - a.price) : 0));
   return (
     <>
-      <PageHead kicker="Archive // All departments" title="The full collection" note="Every piece in the Venkayam archive — heavyweight, pre-shrunk, made in Tiruppur." />
+      <PageHead kicker="Archive // All departments" title="The full collection" note="Every piece in the Venkayam archive — heavyweight, pre-shrunk, Sri Lankan cotton made in India." />
       <section className="px-6 py-14">
         <div className="mx-auto max-w-[1500px]">
           <div className="mb-8 flex flex-wrap items-center gap-3">
@@ -667,13 +667,13 @@ function Drops() {
 }
 
 function About() {
-  const facts = [["2024", "Founded in Chennai"], ["280–450", "GSM combed cotton"], ["150", "Pieces per design"], ["100%", "Made in Tiruppur"]];
-  const steps = [["01", "Sketch", "Hand-cut stencils and hoarding-inspired lettering drawn in North Chennai."], ["02", "Knit & pre-shrink", "Combed Tiruppur yarn, pre-shrunk so oversized fits stay oversized."], ["03", "Screenprint", "Plastisol inks cured for lifetime endurance, one colour at a time."], ["04", "Dispatch", "Packed in Chennai and shipped pan-India."]];
+  const facts = [["2023", "Founded in Chennai"], ["100%", "Sri Lankan cotton"], ["150", "Pieces per design"], ["100%", "Made in India"]];
+  const steps = [["01", "Sketch", "Hand-cut stencils and hoarding-inspired lettering drawn in North Chennai."], ["02", "Knit & pre-shrink", "Combed Sri Lankan cotton yarn, knit in India and pre-shrunk so oversized fits stay oversized."], ["03", "Screenprint", "Plastisol inks cured for lifetime endurance, one colour at a time."], ["04", "Dispatch", "Packed in Chennai and shipped pan-India."]];
   const faqs = [["How does sizing run?", "Oversized, boxy cuts. Take your usual size for the intended fit, or size down one for a closer look."], ["What is your return policy?", "7 days from delivery for unworn pieces with tags. Drop pieces marked final sale are excluded."], ["Do you ship worldwide?", "Pan-India with free shipping above ₹999, and worldwide courier from Chennai."], ["Which payment methods do you accept?", "UPI and cards. We do not offer cash on delivery."]];
   const [open, setOpen] = useState(0);
   return (
     <>
-      <PageHead kicker="Origin manifesto" title="About Venkayam" note="Tamil avant-garde streetwear archive // Est. 2024" />
+      <PageHead kicker="Origin manifesto" title="About Venkayam" note="Tamil avant-garde streetwear archive // Est. 2023" />
       <section className="border-b border-black/10 px-6 py-12">
         <div className="mx-auto grid max-w-[1500px] grid-cols-2 gap-6 lg:grid-cols-4">
           {facts.map(([v, l]) => (

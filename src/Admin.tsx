@@ -197,7 +197,7 @@ function ProductForm({ initial, isNew, onClose }: { initial: Product; isNew: boo
         </Field>
         <Field label="Price (₹)"><Num value={p.price} onChange={(n) => set("price", n)} /></Field>
         <Field label="Original price (₹)" hint="Shown struck through. Leave 0 for no discount."><Num value={p.was} onChange={(n) => set("was", n)} /></Field>
-        <Field label="Spec tag"><input value={p.tag} onChange={(e) => set("tag", e.target.value)} className={inputCls} placeholder="280 GSM" /></Field>
+        <Field label="Spec tag"><input value={p.tag} onChange={(e) => set("tag", e.target.value)} className={inputCls} placeholder="VINTAGE WASH" /></Field>
         <Field label="Badge"><input value={p.badge} onChange={(e) => set("badge", e.target.value)} className={inputCls} placeholder="EDITION: DROP 04" /></Field>
         <div className="md:col-span-2"><Field label="Description" hint="Optional. Overrides the category description on the product page."><textarea rows={3} value={p.description ?? ""} onChange={(e) => set("description", e.target.value)} className={inputCls} /></Field></div>
         <div className="md:col-span-2"><Field label="Image"><ImagePicker value={p.img} onChange={(v) => set("img", v)} /></Field></div>

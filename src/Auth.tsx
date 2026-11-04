@@ -84,7 +84,7 @@ export default function AuthPage({ initial }: { initial: "login" | "signup" }) {
             {["Early access to every drop", "Track orders in one place", "One-tap checkout"].map((t) => <li key={t} className="flex gap-3"><span>+</span>{t}</li>)}
           </ul>
         </div>
-        <p className={`${mono} relative text-[10px] tracking-[0.2em] text-white/40`}>Est. 2024 · Chennai</p>
+        <p className={`${mono} relative text-[10px] tracking-[0.2em] text-white/40`}>Est. 2023 · Chennai</p>
       </div>
 
       <div className="flex items-center justify-center px-6 py-14">
