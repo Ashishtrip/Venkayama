@@ -264,7 +264,8 @@ function ProductPage({ id }: { id: string }) {
   const [warn, setWarn] = useState(false);
   const [qty, setQty] = useState(1);
   const [open, setOpen] = useState(0);
-  useEffect(() => { setSize(""); setWarn(false); setQty(1); }, [id]);
+  const [shot, setShot] = useState(0);
+  useEffect(() => { setSize(""); setWarn(false); setQty(1); setShot(0); }, [id]);
   if (!p) {
     return (
       <section className="px-6 pb-24 pt-[170px]"><div className="mx-auto max-w-[1500px]">
@@ -273,6 +274,8 @@ function ProductPage({ id }: { id: string }) {
       </div></section>
     );
   }
+  const shots = [p.img, ...(p.gallery ?? [])];
+  const cur = shots[Math.min(shot, shots.length - 1)];
   const d = details[p.cat];
   const sizes = sizesFor(p);
   const one = sizes.length === 1;
@@ -297,11 +300,22 @@ function ProductPage({ id }: { id: string }) {
             <span className="text-black">{p.tag}</span>
           </nav>
           <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
-            <div className={`relative overflow-hidden lg:sticky lg:top-28 lg:self-start ${isShot(p) ? "aspect-[461/343] bg-[#f1e0d4]" : "aspect-[4/5] bg-neutral-200"}`}>
-              <img src={imgSrc(p.img)} alt={p.name} className={`absolute inset-0 size-full object-cover ${isShot(p) ? "" : "grayscale"}`} />
-              {p.emblem && <img src={A(p.emblem)} alt="" className="absolute left-1/2 top-[48%] w-1/4 -translate-x-1/2 -translate-y-1/2 mix-blend-multiply" />}
+            <div className="lg:sticky lg:top-28 lg:self-start">
+            <div className={`relative overflow-hidden ${cur.startsWith("/products/") ? "aspect-[461/343] bg-[#f1e0d4]" : "aspect-[4/5] bg-neutral-200"}`}>
+              <img src={imgSrc(cur)} alt={p.name} className={`absolute inset-0 size-full object-cover ${cur.startsWith("/products/") ? "" : "grayscale"}`} />
+              {p.emblem && shot === 0 && <img src={A(p.emblem)} alt="" className="absolute left-1/2 top-[48%] w-1/4 -translate-x-1/2 -translate-y-1/2 mix-blend-multiply" />}
               <span className={`${mono} absolute left-4 top-4 bg-white px-3 py-1.5 text-[10px] font-bold tracking-[0.1em]`}>{p.tag}</span>
               <span className={`${mono} absolute bottom-4 left-4 bg-black px-3 py-1.5 text-[10px] font-bold tracking-[0.1em] text-white`}>{p.badge}</span>
+            </div>
+            {shots.length > 1 && (
+              <div className="mt-3 flex gap-2 overflow-x-auto" role="tablist" aria-label="Product photos">
+                {shots.map((src, i) => (
+                  <button key={i} role="tab" aria-selected={shot === i} aria-label={`Photo ${i + 1}`} onClick={() => setShot(i)} className={`h-20 w-16 shrink-0 overflow-hidden border-2 ${shot === i ? "border-black" : "border-transparent opacity-60 hover:opacity-100"}`}>
+                    <img src={imgSrc(src)} alt="" className="size-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
             </div>
             <div>
               <p className={`${mono} mb-3 flex justify-between text-[10px] tracking-[0.2em] text-neutral-500`}><span>{p.badge}</span><span className="font-bold text-black">{stockLabel(p)}</span></p>

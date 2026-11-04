@@ -169,6 +169,52 @@ function ImagePicker({ value, onChange }: { value: string; onChange: (v: string)
   );
 }
 
+const MAX_GALLERY = 8;
+function GalleryPicker({ cover, value, onChange, onCover }: { cover: string; value: string[]; onChange: (v: string[]) => void; onCover: (img: string, rest: string[]) => void }) {
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const upload = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const room = MAX_GALLERY - value.length;
+    const picked = [...files].filter((f) => f.type.startsWith("image/")).slice(0, room);
+    setBusy(true);
+    const done: string[] = [];
+    for (const f of picked) { try { done.push(await compressImage(f)); } catch { /* skip unreadable file */ } }
+    setBusy(false);
+    onChange([...value, ...done]);
+    const skipped = files.length - done.length;
+    setMsg(skipped > 0 ? `${done.length} added, ${skipped} skipped (not an image, unreadable or over the ${MAX_GALLERY} photo limit).` : `${done.length} added.`);
+  };
+  const move = (i: number, d: number) => { const n = [...value]; const j = i + d; if (j < 0 || j >= n.length) return; [n[i], n[j]] = [n[j], n[i]]; onChange(n); };
+  const makeCover = (i: number) => { const rest = value.filter((_, k) => k !== i); onCover(value[i], [cover, ...rest]); };
+  return (
+    <div>
+      <div className="flex flex-wrap gap-3">
+        {value.map((src, i) => (
+          <div key={i} className="w-24">
+            <img src={imgSrc(src)} alt={`Photo ${i + 2}`} className="h-28 w-24 bg-neutral-200 object-cover" />
+            <div className="mt-1 grid grid-cols-3 gap-1">
+              <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move earlier" className={`${btnLine} px-0 text-center disabled:opacity-30`}>←</button>
+              <button type="button" onClick={() => move(i, 1)} disabled={i === value.length - 1} aria-label="Move later" className={`${btnLine} px-0 text-center disabled:opacity-30`}>→</button>
+              <button type="button" onClick={() => onChange(value.filter((_, k) => k !== i))} aria-label="Remove photo" className={`${btnDanger} px-0 text-center`}>✕</button>
+            </div>
+            <button type="button" onClick={() => makeCover(i)} className={`${btnLine} mt-1 w-full text-center`}>Make cover</button>
+          </div>
+        ))}
+        {value.length < MAX_GALLERY && (
+          <label className={`flex h-28 w-24 cursor-pointer flex-col items-center justify-center gap-1 border-2 border-dashed border-black/40 text-center hover:bg-neutral-100 ${busy ? "opacity-50" : ""}`}>
+            <span className="text-2xl leading-none">+</span>
+            <span className={`${mono} text-[9px] font-bold tracking-wider`}>{busy ? "Adding" : "Add photos"}</span>
+            <input type="file" accept="image/*" multiple disabled={busy} className="sr-only" onChange={(e) => { upload(e.target.files); e.target.value = ""; }} />
+          </label>
+        )}
+      </div>
+      <p className="mt-2 text-[11px] text-neutral-500">{value.length}/{MAX_GALLERY} extra photos. Select several files at once. They show after the cover image on the product page.</p>
+      {msg && <p className={`${mono} mt-1 text-[10px] text-neutral-600`}>{msg}</p>}
+    </div>
+  );
+}
+
 /* ---------------- Products ---------------- */
 const blankProduct = (): Product => ({
   id: actions.newId("p"), sku: "", name: "", cat: "tees", price: 0, was: 0, tag: "", badge: "", img: IMAGES[0], description: "",
@@ -200,7 +246,8 @@ function ProductForm({ initial, isNew, onClose }: { initial: Product; isNew: boo
         <Field label="Spec tag"><input value={p.tag} onChange={(e) => set("tag", e.target.value)} className={inputCls} placeholder="VINTAGE WASH" /></Field>
         <Field label="Badge"><input value={p.badge} onChange={(e) => set("badge", e.target.value)} className={inputCls} placeholder="EDITION: DROP 04" /></Field>
         <div className="md:col-span-2"><Field label="Description" hint="Optional. Overrides the category description on the product page."><textarea rows={3} value={p.description ?? ""} onChange={(e) => set("description", e.target.value)} className={inputCls} /></Field></div>
-        <div className="md:col-span-2"><Field label="Image"><ImagePicker value={p.img} onChange={(v) => set("img", v)} /></Field></div>
+        <div className="md:col-span-2"><Field label="Cover image"><ImagePicker value={p.img} onChange={(v) => set("img", v)} /></Field></div>
+        <div className="md:col-span-2"><span className={`${mono} mb-1 block text-[9px] font-bold tracking-[0.15em] text-neutral-600`}>More photos</span><GalleryPicker cover={p.img} value={p.gallery ?? []} onChange={(g) => set("gallery", g)} onCover={(img, rest) => setP({ ...p, img, gallery: rest })} /></div>
         <div className="md:col-span-2">
           <p className={`${mono} mb-2 text-[9px] font-bold tracking-[0.15em] text-neutral-600`}>Stock by size</p>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">

@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 
 export type Product = {
   id: string; sku: string; name: string; cat: string; price: number; was: number;
-  tag: string; badge: string; img: string; emblem?: string; onion?: boolean; description?: string;
+  tag: string; badge: string; img: string; gallery?: string[]; emblem?: string; onion?: boolean; description?: string;
   sizes: Record<string, number>; sold: number; threshold: number; active: boolean; drop: boolean; claimed: number;
 };
 export type Status = "Placed" | "Printing" | "Packed" | "Shipped" | "Delivered" | "Returned";
