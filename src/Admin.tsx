@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import OnionLogo from "./components/OnionLogo";
-import TempMigration from "./TempMigration"; // TEMP-MIGRATION: delete this line, the <TempMigration /> line, and src/TempMigration.tsx after a successful sync
 import {
   actions, isMono, loadAdmin, NO_RETURNS, useSync, CATS, catLabel, compressImage, FLOW, IMAGES, imgSrc, itemsText, RFLOW, rLabel, sizeKeys, totalStock, useDB,
   type Look, type ReturnReq, type RStatus, type Order, type OrderItem, type Product, type Promo, type Status, type Zone,
@@ -588,7 +587,6 @@ export default function Admin({ onSignOut, userEmail }: { onSignOut?: () => void
             Database error: {sync.error}. Run supabase/migrations/001_venkayam_schema.sql in the Supabase SQL editor if you have not yet.
           </p>
         )}
-        {tab === "Overview" && <TempMigration /> /* TEMP-MIGRATION */}
         {tab === "Overview" && (
           <div className="space-y-5">
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
