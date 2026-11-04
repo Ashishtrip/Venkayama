@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { getSupabase } from "./lib/supabase";
 
 export type Product = {
   id: string; sku: string; name: string; cat: string; price: number; was: number;
@@ -42,8 +43,7 @@ export const CATS: [string, string][] = [["tees", "Tees"], ["hoodies", "Hoodies"
 export const catLabel = (c: string) => CATS.find(([k]) => k === c)?.[1] ?? c;
 export const sizeKeys = (cat: string) => (cat === "caps" || cat === "acc" ? ["One size"] : cat === "tees" ? ["XS", "S", "M", "L", "XL"] : ["S", "M", "L", "XL", "XXL"]);
 export const IMAGES = ["f1497.png", "2e222.png", "9bdff.png", "79b1c.png", "83098.png", "62447.png", "99450.png", "ce1cd.png", "37da8.png", "237a4.png"];
-const mediaUrls = new Map<string, string>();
-export const imgSrc = (i: string) => (i.startsWith("idb:") ? mediaUrls.get(i) ?? "" : /^(https?:|data:|\/)/.test(i) ? i : `/assets/${i}`);
+export const imgSrc = (i: string) => (/^(https?:|data:|\/)/.test(i) ? i : `/assets/${i}`);
 // Built-in artwork is shown in black and white; uploaded photos and catalogue shots keep their colour.
 export const isMono = (i: string) => !/^(data:|idb:|https?:|\/products\/)/.test(i);
 export const totalStock = (p: Product) => Object.values(p.sizes).reduce((a, b) => a + b, 0);
@@ -58,11 +58,11 @@ export const newTrackCode = (taken: string[] = []) => {
   do { c = Array.from(crypto.getRandomValues(new Uint8Array(5)), (b) => b.toString(16).padStart(2, "0")).join("").toUpperCase(); } while (taken.includes(c));
   return c;
 };
-export const returnEligibility = (o: Order, item: OrderItem): string => {
+export const returnEligibility = (o: Order, item: OrderItem, returns: ReturnReq[] = []): string => {
   if (o.status !== "Delivered") return o.status === "Returned" ? "This order was already returned." : "Returns open once the order is delivered.";
   const days = (Date.now() - (o.deliveredAt ?? o.createdAt)) / 864e5;
   if (days > RETURN_DAYS) return `The ${RETURN_DAYS} day window has closed.`;
-  if ((getDB().returns ?? []).some((r) => r.orderId === o.id && r.item.name === item.name && r.item.size === item.size && r.status !== "Rejected")) return "A request is already open for this piece.";
+  if (returns.some((r) => r.orderId === o.id && r.item.name === item.name && r.item.size === item.size && r.status !== "Rejected")) return "A request is already open for this piece.";
   return "";
 };
 export const exchangeOnly = (item: OrderItem): boolean => {
@@ -88,7 +88,7 @@ function rng(seed: number) {
 const mk = (sku: string, name: string, cat: string, price: number, was: number, tag: string, badge: string, img: string, sizes: Record<string, number>, sold: number, threshold: number, claimed: number, extra: Partial<Product> = {}): Product =>
   ({ id: uid("p"), sku, name, cat, price, was, tag, badge, img, sizes, sold, threshold, active: true, drop: true, claimed, ...extra });
 
-function seed(): DB {
+export function seed(): DB {
   const products: Product[] = [
     mk("GEN-001", "FREAK MODE", "tees", 0, 0, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/01.jpg", { XS: 0, S: 0, M: 0, L: 0, XL: 0 }, 0, 8, 0, { description: "Playful streetwear energy with a bold character graphic. Made for the ones who keep their own vibe.", drop: true }),
     mk("GEN-002", "LOWKEY DRIP", "tees", 0, 0, "VINTAGE WASH", "GEN-Z COLLECTION", "/products/02.jpg", { XS: 0, S: 0, M: 0, L: 0, XL: 0 }, 0, 8, 0, { description: "Minimal effort, maximum drip. A clean vintage-wash look for everyday Gen-Z street style.", drop: true }),
@@ -160,97 +160,171 @@ function seed(): DB {
   };
 }
 
-const KEY = "venkayam-db-v4";
-const load = (): DB => {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (raw) { const d = JSON.parse(raw) as DB; return { ...d, returns: d.returns ?? [] }; }
-  } catch { /* fall through to seed */ }
-  return seed();
-};
+/* =====================================================================================
+   Supabase-backed store. Public visitors load products/zones/looks/settings (RLS: read only).
+   Signed-in admins also load orders, returns, promos and activity (RLS: admin only).
+   Customers never read orders directly: they use the SECURITY DEFINER RPCs (place_order, track_order, ...).
+   ===================================================================================== */
+const sb = getSupabase();
+const LEGACY_KEY = "venkayam-db-v4";
 
-let db: DB = load();
+let db: DB = { products: [], orders: [], promos: [], zones: [], looks: [], returns: [], settings: { freeShip: 999, shipFee: 79 }, activity: [], counter: 1 };
 const subs = new Set<() => void>();
 const emit = () => subs.forEach((f) => f());
-let warnedFull = false;
-const commit = (next: DB) => {
-  db = next;
-  try { localStorage.setItem(KEY, JSON.stringify(db)); } catch {
-    if (typeof window !== "undefined" && !warnedFull) { warnedFull = true; window.alert("Browser storage is full, so the latest change was not saved. Remove some uploaded photos and try again."); }
-  }
-  emit();
-};
-if (typeof window !== "undefined") {
-  window.addEventListener("storage", (e) => {
-    if (e.key === KEY && e.newValue) {
-      try { const d = JSON.parse(e.newValue) as DB; db = { ...d, returns: d.returns ?? [] }; emit(); } catch { /* ignore */ }
-    }
-  });
-}
-
+const commit = (next: DB) => { db = next; emit(); };
 const subscribe = (f: () => void) => { subs.add(f); return () => void subs.delete(f); };
 export const useDB = <T,>(sel: (d: DB) => T): T => useSyncExternalStore(subscribe, () => sel(db));
 export const getDB = () => db;
 
-type Coll = "products" | "orders" | "promos" | "zones" | "looks";
-const withLog = (d: DB, m: string, k: Activity["k"]): DB => ({ ...d, activity: [{ t: Date.now(), m, k }, ...d.activity].slice(0, 30) });
+type Sync = { ready: boolean; error: string; admin: boolean };
+let sync: Sync = { ready: false, error: "", admin: false };
+const setSync = (p: Partial<Sync>) => { sync = { ...sync, ...p }; emit(); };
+export const useSync = () => useSyncExternalStore(subscribe, () => sync);
+
+/* ---------- Row mapping ---------- */
+type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+const ms = (v: unknown) => (v ? new Date(v as string).getTime() : undefined);
+const iso = (v?: number) => (v ? new Date(v).toISOString() : null);
+const fromProduct = (r: Row): Product => ({ id: r.id, sku: r.sku, name: r.name, cat: r.cat, price: r.price, was: r.was, tag: r.tag, badge: r.badge, img: r.img, gallery: r.gallery ?? undefined, emblem: r.emblem ?? undefined, onion: r.onion ?? undefined, description: r.description ?? undefined, sizes: r.sizes ?? {}, sold: r.sold, threshold: r.threshold, active: r.active, drop: r.is_drop, claimed: r.claimed });
+const toProduct = (p: Product): Row => ({ id: p.id, sku: p.sku, name: p.name, cat: p.cat, price: p.price, was: p.was, tag: p.tag, badge: p.badge, img: p.img, gallery: p.gallery ?? null, emblem: p.emblem ?? null, onion: p.onion ?? null, description: p.description ?? null, sizes: p.sizes, sold: p.sold, threshold: p.threshold, active: p.active, is_drop: p.drop, claimed: p.claimed });
+const fromOrder = (r: Row): Order => ({ id: r.id, customer: r.customer, phone: r.phone, city: r.city, address: r.address, items: r.items, amount: r.amount, pay: r.pay, status: r.status, createdAt: ms(r.created_at)!, note: r.note, promo: r.promo ?? undefined, track: r.track, deliveredAt: ms(r.delivered_at) });
+const toOrder = (o: Order): Row => ({ id: o.id, customer: o.customer, phone: o.phone, city: o.city, address: o.address, items: o.items, amount: o.amount, pay: o.pay, status: o.status, created_at: iso(o.createdAt), note: o.note, promo: o.promo ?? null, track: o.track || newTrackCode(), delivered_at: iso(o.deliveredAt) });
+const fromPromo = (r: Row): Promo => ({ id: r.id, code: r.code, desc: r.descr, type: r.type, value: r.value, used: r.used, cap: r.cap, on: r.active });
+const toPromo = (p: Promo): Row => ({ id: p.id, code: p.code, descr: p.desc, type: p.type, value: p.value, used: p.used, cap: p.cap, active: p.on });
+const fromZone = (r: Row): Zone => ({ id: r.id, name: r.name, days: r.days, fee: r.fee, freeAbove: r.free_above });
+const toZone = (z: Zone): Row => ({ id: z.id, name: z.name, days: z.days, fee: z.fee, free_above: z.freeAbove });
+const fromLook = (r: Row): Look => ({ id: r.id, img: r.img, label: r.label, title: r.title, shape: r.shape });
+const toLook = (l: Look): Row => ({ ...l });
+const fromReturn = (r: Row): ReturnReq => ({ id: r.id, orderId: r.order_id, track: r.track, customer: r.customer, phone: r.phone, address: r.address, type: r.type, item: r.item, newSize: r.new_size ?? undefined, reason: r.reason, comment: r.comment, status: r.status, createdAt: ms(r.created_at)!, history: r.history ?? [], courier: r.courier, refund: r.refund, note: r.note });
+const toReturn = (r: ReturnReq): Row => ({ id: r.id, order_id: r.orderId, track: r.track, customer: r.customer, phone: r.phone, address: r.address, type: r.type, item: r.item, new_size: r.newSize ?? null, reason: r.reason, comment: r.comment, status: r.status, created_at: iso(r.createdAt), history: r.history, courier: r.courier, refund: r.refund, note: r.note });
+const TABLE_MAP = { products: ["products", toProduct], orders: ["orders", toOrder], promos: ["promos", toPromo], zones: ["zones", toZone], looks: ["looks", toLook] } as const;
+
+/* ---------- Loading ---------- */
+const check = <T,>(r: { data: T | null; error: { message: string } | null }): T => { if (r.error) throw new Error(r.error.message); return (r.data ?? []) as T; };
+let loading: Promise<void> | null = null;
+
+async function loadPublic() {
+  const [p, z, l, s] = await Promise.all([
+    sb.from("products").select("*").order("sort"), sb.from("zones").select("*").order("sort"),
+    sb.from("looks").select("*").order("sort"), sb.from("settings").select("*").eq("id", 1).maybeSingle(),
+  ]);
+  const settings = s.data ? { freeShip: s.data.free_ship, shipFee: s.data.ship_fee } : db.settings;
+  commit({ ...db, products: check<Row[]>(p).map(fromProduct), zones: check<Row[]>(z).map(fromZone), looks: check<Row[]>(l).map(fromLook), settings });
+}
+async function loadAdminData() {
+  const [o, r, c, a] = await Promise.all([
+    sb.from("orders").select("*").order("created_at", { ascending: false }), sb.from("returns").select("*").order("created_at", { ascending: false }),
+    sb.from("promos").select("*").order("code"), sb.from("activity").select("*").order("id", { ascending: false }).limit(30),
+  ]);
+  const orders = check<Row[]>(o).map(fromOrder);
+  commit({
+    ...db, orders, returns: check<Row[]>(r).map(fromReturn), promos: check<Row[]>(c).map(fromPromo),
+    activity: check<Row[]>(a).map((x) => ({ t: Number(x.t), m: x.m, k: x.k })),
+    counter: orders.reduce((m, x) => Math.max(m, Number(x.id.slice(4)) || 0), 1000) + 1,
+  });
+}
+/** Reloads everything the current session may see. Concurrent calls share one request. */
+export function refresh(): Promise<void> {
+  if (!loading) {
+    loading = (async () => {
+      try {
+        await loadPublic();
+        if (sync.admin) await loadAdminData();
+        setSync({ ready: true, error: "" });
+      } catch (e) { setSync({ ready: true, error: (e as Error).message || "Could not reach the store database" }); }
+    })().finally(() => { loading = null; });
+  }
+  return loading;
+}
+/** Called by the admin screen once the signed-in admin is confirmed. */
+export async function loadAdmin() { sync = { ...sync, admin: true }; await refresh(); }
+
+export async function initStore(): Promise<void> {
+  sb.auth.onAuthStateChange((ev) => {
+    if (ev === "SIGNED_OUT") { sync = { ...sync, admin: false }; commit({ ...db, orders: [], returns: [], promos: [], activity: [] }); refresh(); }
+  });
+  const first = refresh();
+  if (typeof window !== "undefined") {
+    window.addEventListener("focus", () => void refresh());
+    window.setInterval(() => { if (!document.hidden) void refresh(); }, sync.admin ? 30000 : 60000);
+  }
+  await first;
+}
+
+/* ---------- Writes ---------- */
+const errText = (m: string) => {
+  const t = m.match(/(EMPTY_CART|BAD_QUANTITY|BAD_PROMO|BAD_CUSTOMER|ORDER_NOT_FOUND|NOT_DELIVERED|WINDOW_CLOSED|ITEM_NOT_IN_ORDER|ALREADY_REQUESTED|SIZE_UNAVAILABLE|BAD_TYPE|FORBIDDEN|UNAVAILABLE: .+|OUT_OF_STOCK: .+)/)?.[1] ?? m;
+  if (t.startsWith("OUT_OF_STOCK")) return `Sorry, ${t.slice(14)} just sold out. Update your cart.`;
+  if (t.startsWith("UNAVAILABLE")) return `${t.slice(13)} is no longer available.`;
+  return ({ EMPTY_CART: "Your cart is empty.", BAD_QUANTITY: "Invalid quantity.", BAD_PROMO: "That promo code is no longer valid.", BAD_CUSTOMER: "Enter the customer name.", ORDER_NOT_FOUND: "No order found for that tracking code and phone number.", NOT_DELIVERED: "Returns open once the order is delivered.", WINDOW_CLOSED: `The ${RETURN_DAYS} day window has closed.`, ITEM_NOT_IN_ORDER: "That piece is not in the order.", ALREADY_REQUESTED: "A request is already open for this piece.", SIZE_UNAVAILABLE: "That size is not available.", BAD_TYPE: "Invalid request type.", FORBIDDEN: "You are not allowed to do that." } as Record<string, string>)[t] ?? t;
+};
+let lastAlert = 0;
+const exec = (what: string, p: PromiseLike<{ error: { message: string } | null }>) =>
+  Promise.resolve(p).then(({ error }) => {
+    if (!error) return;
+    console.error(what, error.message);
+    if (Date.now() - lastAlert > 3000) { lastAlert = Date.now(); window.alert(`Could not save (${what}): ${errText(error.message)}. The latest data has been reloaded.`); }
+    void refresh();
+  });
+const logRow = (m: string, k: Activity["k"]) => { const t = Date.now(); void exec("activity", sb.from("activity").insert({ t, m, k })); return { t, m, k } as Activity; };
+const withLog = (d: DB, m: string, k: Activity["k"]): DB => ({ ...d, activity: [logRow(m, k), ...d.activity].slice(0, 30) });
+const rpc = async <T,>(fn: string, args: Record<string, unknown>): Promise<T> => {
+  const { data, error } = await sb.rpc(fn, args);
+  if (error) throw new Error(errText(error.message));
+  return data as T;
+};
+
+type Coll = keyof typeof TABLE_MAP;
+export type Quote = { items: OrderItem[]; subtotal: number; discount: number; shipping: number; total: number };
+export type PromoInfo = { code: string; type: "flat" | "percent"; value: number };
 
 export const actions = {
   newId: uid,
   save<K extends Coll>(key: K, item: DB[K][number], label?: string) {
     const list = db[key] as { id: string }[];
     const exists = list.some((x) => x.id === item.id);
-    const next = exists ? list.map((x) => (x.id === item.id ? item : x)) : [item, ...list];
-    commit(withLog({ ...db, [key]: next } as DB, `${label ?? key} ${exists ? "updated" : "created"}`, "edit"));
+    const [table, map] = TABLE_MAP[key] as unknown as [string, (i: unknown) => Row];
+    commit(withLog({ ...db, [key]: exists ? list.map((x) => (x.id === item.id ? item : x)) : [item, ...list] } as DB, `${label ?? key} ${exists ? "updated" : "created"}`, "edit"));
+    void exec(`${label ?? key}`, sb.from(table).upsert(map(item), { onConflict: "id" }));
+  },
+  patchProduct(id: string, patch: Partial<Pick<Product, "active">>) {
+    commit({ ...db, products: db.products.map((p) => (p.id === id ? { ...p, ...patch } : p)) });
+    void exec("product", sb.from("products").update(patch).eq("id", id));
   },
   remove(key: Coll, id: string, label?: string) {
     commit(withLog({ ...db, [key]: (db[key] as { id: string }[]).filter((x) => x.id !== id) } as DB, `${label ?? key} deleted`, "edit"));
+    void exec(`delete ${label ?? key}`, sb.from(TABLE_MAP[key][0]).delete().eq("id", id));
   },
   setStatus(id: string, status: Status) {
-    commit(withLog({ ...db, orders: db.orders.map((o) => (o.id === id ? { ...o, status, deliveredAt: status === "Delivered" ? Date.now() : o.deliveredAt } : o)) }, `${id} → ${status}`, "ship"));
+    const deliveredAt = status === "Delivered" ? Date.now() : db.orders.find((o) => o.id === id)?.deliveredAt;
+    commit(withLog({ ...db, orders: db.orders.map((o) => (o.id === id ? { ...o, status, deliveredAt } : o)) }, `${id} → ${status}`, "ship"));
+    void exec("order status", sb.from("orders").update({ status, delivered_at: iso(deliveredAt) }).eq("id", id));
   },
   setSettings(s: Settings) {
     commit(withLog({ ...db, settings: s }, "Shipping settings updated", "edit"));
+    void exec("settings", sb.from("settings").update({ free_ship: s.freeShip, ship_fee: s.shipFee }).eq("id", 1));
   },
   setStock(id: string, size: string, qty: number) {
-    commit({ ...db, products: db.products.map((p) => (p.id === id ? { ...p, sizes: { ...p.sizes, [size]: Math.max(0, qty) } } : p)) });
+    const v = Math.max(0, qty);
+    commit({ ...db, products: db.products.map((p) => (p.id === id ? { ...p, sizes: { ...p.sizes, [size]: v } } : p)) });
+    void exec("stock", sb.rpc("stock_change", { p_id: id, p_size: size, p_value: v, p_relative: false }));
   },
-  nextOrderId() {
-    return `VNK-${db.counter}`;
-  },
-  placeOrder(o: Omit<Order, "id" | "createdAt" | "status" | "note">, status: Status = "Placed"): Order {
-    const order: Order = { ...o, id: `VNK-${db.counter}`, track: newTrackCode(db.orders.map((x) => x.track ?? "")), createdAt: Date.now(), status, note: "" };
-    const products = db.products.map((p) => {
-      const lines = o.items.filter((i) => i.name === p.name);
-      if (!lines.length) return p;
-      const sizes = { ...p.sizes };
-      let sold = p.sold, claimed = p.claimed;
-      lines.forEach((l) => { sizes[l.size] = Math.max(0, (sizes[l.size] ?? 0) - l.qty); sold += l.qty; claimed += l.qty; });
-      return { ...p, sizes, sold, claimed };
-    });
-    const promos = o.promo ? db.promos.map((c) => (c.code === o.promo ? { ...c, used: c.used + 1 } : c)) : db.promos;
-    let next: DB = withLog({ ...db, products, promos, orders: [order, ...db.orders], counter: db.counter + 1 }, `${order.id} placed, ₹${o.amount.toLocaleString("en-IN")}, ${o.pay}, ${o.city || "n/a"}`, "order");
-    products.forEach((p) => {
-      const before = db.products.find((x) => x.id === p.id)!;
-      if (totalStock(p) === 0 && totalStock(before) > 0) next = withLog(next, `${p.name} sold out`, "alert");
-    });
-    commit(next);
+  nextOrderId() { return `VNK-${db.counter}`; },
+  /** Server recomputes prices, shipping, discount and stock. Admins may also set status and a custom amount. */
+  async placeOrder(o: Omit<Order, "id" | "createdAt" | "status" | "note"> & { paymentId?: string }, status: Status = "Placed"): Promise<Order> {
+    const row = await rpc<Row>("place_order", { p: { customer: o.customer, phone: o.phone, city: o.city, address: o.address, pay: o.pay, promo: o.promo ?? null, status, amount: o.amount, payment_id: o.paymentId ?? null, items: o.items.map(({ name, size, qty }) => ({ name, size, qty })) } });
+    const order = fromOrder(row);
+    if (sync.admin) commit({ ...db, orders: [order, ...db.orders], counter: db.counter + 1 });
+    void refresh();
     return order;
   },
-  requestReturn(r: { order: Order; item: OrderItem; type: "Return" | "Exchange"; newSize?: string; reason: string; comment: string }): ReturnReq {
-    const list = db.returns ?? [];
-    const n = list.reduce((m, x) => Math.max(m, Number(x.id.slice(4)) || 0), 1000) + 1;
-    const now = Date.now();
-    const req: ReturnReq = {
-      id: `RET-${n}`, orderId: r.order.id, track: r.order.track ?? "", customer: r.order.customer, phone: r.order.phone, address: r.order.address,
-      type: r.type, item: { ...r.item, qty: r.item.qty }, newSize: r.type === "Exchange" ? r.newSize : undefined, reason: r.reason, comment: r.comment,
-      status: "Requested", createdAt: now, history: [{ t: now, s: "Requested" }], courier: "", refund: r.type === "Return" ? r.item.price * r.item.qty : 0, note: "",
-    };
-    commit(withLog({ ...db, returns: [req, ...list] }, `${req.id} ${r.type.toLowerCase()} requested for ${r.order.id}`, "alert"));
-    return req;
+  async requestReturn(r: { code: string; phone: string; item: OrderItem; type: "Return" | "Exchange"; newSize?: string; reason: string; comment: string }): Promise<ReturnReq> {
+    const row = await rpc<Row>("request_return", { p_code: r.code, p_phone: r.phone, p_item_name: r.item.name, p_item_size: r.item.size, p_type: r.type, p_new_size: r.newSize ?? null, p_reason: r.reason, p_comment: r.comment });
+    return fromReturn(row);
   },
   updateReturn(id: string, patch: Partial<Pick<ReturnReq, "courier" | "refund" | "note">>) {
-    commit({ ...db, returns: (db.returns ?? []).map((x) => (x.id === id ? { ...x, ...patch } : x)) });
+    commit({ ...db, returns: db.returns!.map((x) => (x.id === id ? { ...x, ...patch } : x)) });
+    void exec("return", sb.from("returns").update(patch).eq("id", id));
   },
   setReturnStatus(id: string, status: RStatus, note?: string) {
     const r = (db.returns ?? []).find((x) => x.id === id);
@@ -259,94 +333,62 @@ export const actions = {
     const willReserve = r.type === "Exchange" && status !== "Requested" && status !== "Rejected";
     const wasRestocked = r.status === "Received" || r.status === "Resolved";
     const willRestock = status === "Received" || status === "Resolved";
-    const adj = (p: Product): Product => {
-      if (p.name !== r.item.name) return p;
-      const sizes = { ...p.sizes };
-      if (r.newSize && willReserve && !wasReserved) sizes[r.newSize] = Math.max(0, (sizes[r.newSize] ?? 0) - r.item.qty);
-      if (r.newSize && wasReserved && !willReserve) sizes[r.newSize] = (sizes[r.newSize] ?? 0) + r.item.qty;
-      if (willRestock && !wasRestocked) sizes[r.item.size] = (sizes[r.item.size] ?? 0) + r.item.qty;
-      return { ...p, sizes };
-    };
-    const returns = (db.returns ?? []).map((x) => (x.id === id ? { ...x, status, history: [...x.history, { t: Date.now(), s: status, note }] } : x));
+    const prod = db.products.find((p) => p.name === r.item.name);
+    const deltas: [string, number][] = [];
+    if (r.newSize && willReserve && !wasReserved) deltas.push([r.newSize, -r.item.qty]);
+    if (r.newSize && wasReserved && !willReserve) deltas.push([r.newSize, r.item.qty]);
+    if (willRestock && !wasRestocked) deltas.push([r.item.size, r.item.qty]);
+    let products = db.products;
+    if (prod) {
+      products = db.products.map((p) => {
+        if (p.id !== prod.id) return p;
+        const sizes = { ...p.sizes };
+        deltas.forEach(([s, d]) => { sizes[s] = Math.max(0, (sizes[s] ?? 0) + d); });
+        return { ...p, sizes };
+      });
+      deltas.forEach(([s, d]) => void exec("stock", sb.rpc("stock_change", { p_id: prod.id, p_size: s, p_value: d, p_relative: true })));
+    }
+    const history = [...r.history, { t: Date.now(), s: status, note }];
+    const returns = db.returns!.map((x) => (x.id === id ? { ...x, status, history } : x));
+    void exec("return status", sb.from("returns").update({ status, history }).eq("id", id));
     let orders = db.orders;
     if (status === "Resolved" && r.type === "Return") {
       const o = db.orders.find((x) => x.id === r.orderId);
-      if (o && o.items.length === 1 && o.items[0].qty === r.item.qty) orders = db.orders.map((x) => (x.id === o.id ? { ...x, status: "Returned" as Status } : x));
+      if (o && o.items.length === 1 && o.items[0].qty === r.item.qty) {
+        orders = db.orders.map((x) => (x.id === o.id ? { ...x, status: "Returned" as Status } : x));
+        void exec("order", sb.from("orders").update({ status: "Returned" }).eq("id", o.id));
+      }
     }
-    commit(withLog({ ...db, returns, orders, products: db.products.map(adj) }, `${r.id} → ${rLabel(status, r.type)}`, "ship"));
+    commit(withLog({ ...db, returns, orders, products }, `${r.id} → ${rLabel(status, r.type)}`, "ship"));
   },
   removeReturn(id: string) {
     commit(withLog({ ...db, returns: (db.returns ?? []).filter((x) => x.id !== id) }, `${id} deleted`, "edit"));
-  },
-  reset() {
-    commit(seed());
+    void exec("delete return", sb.from("returns").delete().eq("id", id));
   },
 };
 
-export function discountFor(code: string, subtotal: number): { promo?: Promo; amount: number; error?: string } {
-  const c = db.promos.find((p) => p.code === code.trim().toUpperCase());
-  if (!c) return { amount: 0, error: "Code not recognised" };
-  if (!c.on) return { amount: 0, error: "Code is paused" };
-  if (c.used >= c.cap) return { amount: 0, error: "Code fully redeemed" };
-  const amount = c.type === "flat" ? Math.min(c.value, subtotal) : Math.round((subtotal * c.value) / 100);
-  return { promo: c, amount };
+/* ---------- Customer-facing server calls ---------- */
+export const quoteOrder = (items: { name: string; size: string; qty: number }[], promo?: string) =>
+  rpc<Quote>("quote_order", { p: { items, promo: promo ?? null } });
+export const checkPromo = (code: string) => rpc<Partial<PromoInfo> & { error?: string }>("check_promo", { p_code: code, p_subtotal: 0 });
+export const promoAmount = (p: Pick<PromoInfo, "type" | "value">, subtotal: number) => (p.type === "flat" ? Math.min(p.value, subtotal) : Math.round((subtotal * p.value) / 100));
+export async function trackOrder(code: string, phone: string): Promise<{ order: Order; returns: ReturnReq[] } | null> {
+  const r = await rpc<{ order: Row; returns: Row[] } | null>("track_order", { p_code: code, p_phone: phone });
+  return r ? { order: fromOrder(r.order), returns: r.returns.map(fromReturn) } : null;
+}
+export async function getReturn(id: string, phone: string): Promise<ReturnReq | null> {
+  const r = await rpc<Row | null>("get_return", { p_id: id, p_phone: phone });
+  return r ? fromReturn(r) : null;
 }
 
-/* ---------- Uploaded media: stored in IndexedDB (hundreds of MB) instead of localStorage (~5 MB) ---------- */
-const MEDIA_DB = "venkayam-media";
-const openMedia = (): Promise<IDBDatabase> =>
-  new Promise((resolve, reject) => {
-    const r = indexedDB.open(MEDIA_DB, 1);
-    r.onupgradeneeded = () => r.result.createObjectStore("img");
-    r.onsuccess = () => resolve(r.result);
-    r.onerror = () => reject(r.error);
-  });
-const idbPut = async (key: string, blob: Blob) => {
-  const d = await openMedia();
-  await new Promise<void>((res, rej) => { const t = d.transaction("img", "readwrite"); t.objectStore("img").put(blob, key); t.oncomplete = () => res(); t.onerror = () => rej(t.error); });
-  d.close();
-};
-const dataToBlob = async (u: string) => (await fetch(u)).blob();
-
+/* ---------- Media: Supabase Storage (public bucket "media", admin-only writes) ---------- */
 export const saveMedia = async (blob: Blob): Promise<string> => {
-  const key = `idb:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-  await idbPut(key, blob);
-  mediaUrls.set(key, URL.createObjectURL(blob));
-  return key;
+  const ext = blob.type === "image/webp" ? "webp" : blob.type === "image/png" ? "png" : "jpg";
+  const path = `uploads/${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await sb.storage.from("media").upload(path, blob, { contentType: blob.type || "image/jpeg", cacheControl: "31536000" });
+  if (error) throw new Error(`Upload failed: ${error.message}`);
+  return sb.storage.from("media").getPublicUrl(path).data.publicUrl;
 };
-
-/** Loads stored photos into memory and moves any old inline (data:) photos out of localStorage. Call once before rendering. */
-export async function initMedia(): Promise<void> {
-  if (typeof indexedDB === "undefined") return;
-  try {
-    navigator.storage?.persist?.();
-    const d = await openMedia();
-    await new Promise<void>((res) => {
-      const t = d.transaction("img", "readonly");
-      const st = t.objectStore("img");
-      const keys = st.getAllKeys(); const vals = st.getAll();
-      t.oncomplete = () => { (keys.result as string[]).forEach((k, i) => mediaUrls.set(k, URL.createObjectURL(vals.result[i] as Blob))); res(); };
-      t.onerror = () => res();
-    });
-    d.close();
-    // Migrate photos that were saved inline before this change.
-    const moved = new Map<string, string>();
-    const move = async (v: string) => {
-      if (!v.startsWith("data:")) return v;
-      if (!moved.has(v)) moved.set(v, await saveMedia(await dataToBlob(v)));
-      return moved.get(v)!;
-    };
-    let changed = false;
-    const products = await Promise.all(db.products.map(async (p) => {
-      const img = await move(p.img);
-      const gallery = p.gallery ? await Promise.all(p.gallery.map(move)) : p.gallery;
-      if (img !== p.img || gallery !== p.gallery) changed = true;
-      return { ...p, img, gallery };
-    }));
-    const looks = await Promise.all(db.looks.map(async (l) => { const img = await move(l.img); if (img !== l.img) changed = true; return { ...l, img }; }));
-    if (changed) commit({ ...db, products, looks });
-  } catch { /* media store unavailable: uploads fall back to inline images */ }
-}
 
 export const compressImage = (file: File, max = 1600): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -363,9 +405,13 @@ export const compressImage = (file: File, max = 1600): Promise<string> =>
       URL.revokeObjectURL(url);
       c.toBlob(async (blob) => {
         if (!blob) return reject(new Error("Could not encode image"));
-        try { resolve(await saveMedia(blob)); } catch { resolve(c.toDataURL("image/jpeg", 0.85)); }
-      }, "image/jpeg", 0.92);
+        try { resolve(await saveMedia(blob)); } catch (e) { reject(e); }
+      }, "image/webp", 0.9);
     };
     im.onerror = () => reject(new Error("Not an image"));
     im.src = url;
   });
+
+/** Row mappers + legacy key, exposed for the temporary migration tool only. Safe to keep. */
+export const rowMappers = { toProduct, toLook, toPromo, toOrder, toReturn };
+export const LEGACY_STORAGE_KEY = LEGACY_KEY;

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import OnionLogo from "./components/OnionLogo";
+import TempMigration from "./TempMigration"; // TEMP-MIGRATION: delete this line, the <TempMigration /> line, and src/TempMigration.tsx after a successful sync
 import {
-  actions, isMono, NO_RETURNS, CATS, catLabel, compressImage, FLOW, IMAGES, imgSrc, itemsText, RFLOW, rLabel, sizeKeys, totalStock, useDB,
+  actions, isMono, loadAdmin, NO_RETURNS, useSync, CATS, catLabel, compressImage, FLOW, IMAGES, imgSrc, itemsText, RFLOW, rLabel, sizeKeys, totalStock, useDB,
   type Look, type ReturnReq, type RStatus, type Order, type OrderItem, type Product, type Promo, type Status, type Zone,
 } from "./store";
 
@@ -143,7 +144,7 @@ function ImagePicker({ value, onChange }: { value: string; onChange: (v: string)
   const [err, setErr] = useState("");
   const upload = async (f?: File) => {
     if (!f) return;
-    try { onChange(await compressImage(f)); setErr(""); } catch { setErr("That file is not an image."); }
+    try { onChange(await compressImage(f)); setErr(""); } catch (e) { setErr((e as Error).message || "That file is not an image."); }
   };
   return (
     <div>
@@ -287,12 +288,15 @@ function OrderForm({ initial, onClose }: { initial?: Order; onClose: () => void 
     const p = products[0];
     if (p) setItems([...o.items, { name: p.name, size: Object.keys(p.sizes)[0], qty: 1, price: p.price }]);
   };
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!o.customer.trim()) return setErr("Customer name is required.");
     if (o.items.length === 0) return setErr("Add at least one item.");
     if (initial) actions.save("orders", { ...o, id: initial.id, createdAt: initial.createdAt!, track: initial.track } as Order, initial.id);
-    else actions.placeOrder({ customer: o.customer, phone: o.phone, city: o.city, address: o.address, items: o.items, amount: o.amount, pay: o.pay }, o.status);
+    else {
+      try { await actions.placeOrder({ customer: o.customer, phone: o.phone, city: o.city, address: o.address, items: o.items, amount: o.amount, pay: o.pay }, o.status); }
+      catch (er) { return setErr((er as Error).message); }
+    }
     onClose();
   };
   return (
@@ -426,6 +430,8 @@ type Dlg =
 
 export default function Admin({ onSignOut, userEmail }: { onSignOut?: () => void; userEmail?: string }) {
   const [tab, setTab] = useState<Tab>("Overview");
+  const sync = useSync();
+  useEffect(() => { void loadAdmin(); }, []);
   const orders = useDB((d) => d.orders);
   const products = useDB((d) => d.products);
   const promos = useDB((d) => d.promos);
@@ -573,10 +579,16 @@ export default function Admin({ onSignOut, userEmail }: { onSignOut?: () => void
             {tab === "Promos" && <button onClick={() => setDlg({ k: "promo" })} className={btnDark}>+ New promo</button>}
             {tab === "Shipping" && <button onClick={() => setDlg({ k: "zone" })} className={btnDark}>+ New zone</button>}
             {tab === "Lookbook" && <button onClick={() => setDlg({ k: "look" })} className={btnDark}>+ New look</button>}
-            {tab === "Overview" && <button onClick={() => ask("Reset all products, orders, promos and settings to the sample data? This cannot be undone.", () => actions.reset())} className={`${mono} border border-black px-4 py-2.5 text-[10px] font-bold tracking-[0.15em] hover:bg-black hover:text-white`}>Reset demo data</button>}
+            
           </div>
         </div>
 
+        {sync.error && (
+          <p role="status" className={`${mono} mb-4 border-2 p-3 text-[10px] font-bold leading-5 tracking-wider border-red-600 text-red-700`}>
+            Database error: {sync.error}. Run supabase/migrations/001_venkayam_schema.sql in the Supabase SQL editor if you have not yet.
+          </p>
+        )}
+        {tab === "Overview" && <TempMigration /> /* TEMP-MIGRATION */}
         {tab === "Overview" && (
           <div className="space-y-5">
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
@@ -776,7 +788,7 @@ export default function Admin({ onSignOut, userEmail }: { onSignOut?: () => void
                           </p>
                         </div>
                         <div className="flex gap-1.5">
-                          <button onClick={() => actions.save("products", { ...p, active: !p.active }, p.name)} className={btnLine}>{p.active ? "Hide" : "List"}</button>
+                          <button onClick={() => actions.patchProduct(p.id, { active: !p.active })} className={btnLine}>{p.active ? "Hide" : "List"}</button>
                           <button onClick={() => setDlg({ k: "product", v: p, isNew: false })} className={btnLine}>Edit</button>
                           <button onClick={() => ask(`Delete "${p.name}"? It disappears from the shop immediately.`, () => actions.remove("products", p.id, p.name))} className={btnDanger}>Delete</button>
                         </div>

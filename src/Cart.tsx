@@ -1,5 +1,5 @@
 import OnionLogo from "./components/OnionLogo";
-import { actions, discountFor, getDB, imgSrc, isMono, useDB } from "./store";
+import { actions, checkPromo, getDB, imgSrc, isMono, promoAmount, quoteOrder, useDB, type PromoInfo } from "./store";
 import { projectId, publicAnonKey } from "../utils/supabase/info";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
@@ -33,11 +33,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const FREE_SHIP = settings.freeShip;
   const [code, setCode] = useState("");
   const [applied, setApplied] = useState("");
+  const [promo, setPromo] = useState<PromoInfo | null>(null);
   const [codeMsg, setCodeMsg] = useState("");
 
   const subtotal = lines.reduce((a, l) => a + l.price * l.qty, 0);
   const count = lines.reduce((a, l) => a + l.qty, 0);
-  const disc = applied ? discountFor(applied, subtotal) : { amount: 0 };
+  const disc = { amount: promo ? promoAmount(promo, subtotal) : 0 };
   const after = subtotal - disc.amount;
   const shipping = subtotal === 0 || after >= FREE_SHIP ? 0 : settings.shipFee;
   const total = after + shipping;
@@ -73,25 +74,28 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return qty <= 0 ? [] : [{ ...l, qty }];
       })
     );
-  const applyCode = () => {
-    const res = discountFor(code, subtotal);
-    if (res.error) { setCodeMsg(res.error); setApplied(""); return; }
-    setApplied(res.promo!.code);
-    setCodeMsg(`${res.promo!.code} applied, saving ${inr(res.amount)}`);
+  const applyCode = async () => {
+    try {
+      const res = await checkPromo(code);
+      if (res.error || !res.code) { setCodeMsg(res.error ?? "Code not recognised"); setApplied(""); setPromo(null); return; }
+      const info = res as PromoInfo;
+      setApplied(info.code); setPromo(info);
+      setCodeMsg(`${info.code} applied, saving ${inr(promoAmount(info, subtotal))}`);
+    } catch { setCodeMsg("Could not check the code. Try again."); }
   };
 
   const [paying, setPaying] = useState(false);
   const [payErr, setPayErr] = useState("");
 
-  const finish = (f: FormData) => {
-    const order = actions.placeOrder({
+  const finish = async (f: FormData, paymentId: string) => {
+    const order = await actions.placeOrder({
       customer: String(f.get("name")), phone: String(f.get("phone")), address: String(f.get("address")),
-      city: String(f.get("city")), pay, amount: total, promo: applied || undefined,
+      city: String(f.get("city")), pay, amount: total, promo: applied || undefined, paymentId,
       items: lines.map((l) => ({ name: l.name, size: l.size, qty: l.qty, price: l.price })),
     });
     setOrderId(order.id); setTrackCode(order.track ?? "");
     setPaid(total);
-    setApplied(""); setCode(""); setCodeMsg("");
+    setApplied(""); setPromo(null); setCode(""); setCodeMsg("");
     setLines([]);
     setOpen(false);
     setProgress(0);
@@ -125,7 +129,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setPayErr(""); setPaying(true);
     try {
       if (!(await loadRzp())) throw new Error("Could not load payment window. Check your connection.");
-      const o = await api("order", { amount: total, receipt: `VNK-${Date.now()}` });
+      // The database is the source of truth for price, stock, discount and shipping.
+      const q = await quoteOrder(lines.map((l) => ({ name: l.name, size: l.size, qty: l.qty })), applied || undefined);
+      if (q.total !== total) throw new Error(`Prices or shipping changed. The total is now ${inr(q.total)}. Review your cart and try again.`);
+      const o = await api("order", { amount: q.total, receipt: `VNK-${Date.now()}` });
       if (o.error || !o.orderId) throw new Error(o.error || "Could not start payment");
       const rzp = new (window as any).Razorpay({
         key: o.keyId, order_id: o.orderId, amount: o.amount, currency: o.currency,
@@ -136,7 +143,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           try {
             const v = await api("verify", r);
             if (!v.verified) throw new Error("Payment could not be verified. If money was deducted, contact us with ID " + r.razorpay_payment_id);
-            finish(f);
+            await finish(f, r.razorpay_payment_id).catch((e: Error) => { throw new Error(`Payment received but the order could not be saved (${e.message}). Contact us with payment ID ${r.razorpay_payment_id}.`); });
           } catch (err) {
             setPayErr((err as Error).message);
           } finally {

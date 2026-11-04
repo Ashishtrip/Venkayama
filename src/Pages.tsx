@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Cooking from "./components/Cooking";
-import { NO_RETURNS, STUDIO, actions, exchangeOnly, FLOW, getDB, imgSrc, itemsText, returnEligibility, RFLOW, rLabel, RNOTES, useDB, type Order, type ReturnReq, type RStatus } from "./store";
+import { STUDIO, actions, exchangeOnly, FLOW, getReturn, imgSrc, itemsText, returnEligibility, RFLOW, rLabel, RNOTES, trackOrder, useDB, type Order, type ReturnReq, type RStatus } from "./store";
 
 const mono = "font-mono uppercase";
 const disp = "font-display uppercase";
@@ -73,13 +73,15 @@ export function TrackOrder() {
   const [id, setId] = useState("");
   const [phone, setPhone] = useState("");
   const [res, setRes] = useState<null | Order | "bad" | "none">(null);
-  const submit = (e: React.FormEvent) => {
+  const [rets, setRets] = useState<ReturnReq[]>([]);
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const clean = id.trim().toUpperCase();
-    if (!/^(VNK-\d{3,6}|[0-9A-F]{10})$/.test(clean) || phone.replace(/\D/g, "").length < 10) { setRes("bad"); return; }
-    const o = getDB().orders.find((x) => x.id === clean || x.track === clean);
-    const digits = (v: string) => v.replace(/\D/g, "").slice(-10);
-    setRes(o && (!o.phone || digits(o.phone) === digits(phone)) ? o : "none");
+    if (!/^[0-9A-F]{10}$/.test(clean) || phone.replace(/\D/g, "").length < 10) { setRes("bad"); return; }
+    try {
+      const r = await trackOrder(clean, phone);
+      setRes(r ? r.order : "none"); setRets(r?.returns ?? []);
+    } catch { setRes("none"); }
   };
   const field = "w-full border border-black bg-white px-4 py-3.5 text-sm outline-none focus:ring-2 focus:ring-black";
   return (
@@ -116,7 +118,7 @@ export function TrackOrder() {
                     </li>
                   ))}
                 </ol>)}
-                {(getDB().returns ?? []).filter((r) => r.orderId === res.id).map((r) => <div key={r.id} className="mt-8 border-2 border-black p-5"><ReturnTimeline r={r} /></div>)}
+                {rets.map((r) => <div key={r.id} className="mt-8 border-2 border-black p-5"><ReturnTimeline r={r} /></div>)}
               </div>
               );
             })() : (
@@ -160,7 +162,6 @@ export function Shipping() {
 }
 
 /* ---------- Returns ---------- */
-const digits10 = (v: string) => v.replace(/\D/g, "").slice(-10);
 const fieldCls = "w-full border border-black bg-white px-4 py-3.5 text-sm outline-none focus:ring-2 focus:ring-black";
 const REASONS = ["Size does not fit", "Received wrong piece", "Print or fabric defect", "Damaged in transit", "Not as expected", "Changed my mind"];
 
@@ -209,29 +210,36 @@ function StartRequest() {
   const [reason, setReason] = useState(REASONS[0]);
   const [comment, setComment] = useState("");
   const [done, setDone] = useState<ReturnReq | null>(null);
+  const [orderRets, setOrderRets] = useState<ReturnReq[]>([]);
+  const [busy, setBusy] = useState(false);
   const products = useDB((d) => d.products);
-  useDB((d) => d.returns);
 
-  const lookup = (e: React.FormEvent) => {
+  const lookup = async (e: React.FormEvent) => {
     e.preventDefault();
     const clean = code.trim().toUpperCase();
-    const o = getDB().orders.find((x) => x.track === clean || x.id === clean);
-    if (!o || phone.replace(/\D/g, "").length < 10 || (o.phone && digits10(o.phone) !== digits10(phone))) { setErr("No order found for that tracking code and phone number."); return; }
-    setErr(""); setOrder(o); setIdx(0); setNewSize("");
+    setBusy(true);
+    let r: Awaited<ReturnType<typeof trackOrder>> = null;
+    try { r = await trackOrder(clean, phone); } catch { /* treated as not found */ }
+    setBusy(false);
+    if (!r) { setErr("No order found for that tracking code and phone number."); return; }
+    setErr(""); setOrder(r.order); setOrderRets(r.returns); setIdx(0); setNewSize("");
   };
   const item = order?.items[idx];
-  const block = order && item ? returnEligibility(order, item) : "";
+  const block = order && item ? returnEligibility(order, item, orderRets) : "";
   const xOnly = item ? exchangeOnly(item) : false;
   const effType = xOnly ? "Exchange" : type;
   const prod = item ? products.find((p) => p.name === item.name) : undefined;
   const sizeOpts = prod ? Object.entries(prod.sizes).filter(([s, n]) => s !== item?.size && n >= (item?.qty ?? 1)) : [];
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!order || !item || block) return;
+    if (!order || !item || block || busy) return;
     if (effType === "Exchange" && !newSize) { setErr("Choose the size you want instead."); return; }
     setErr("");
-    setDone(actions.requestReturn({ order, item, type: effType, newSize, reason, comment: comment.trim() }));
+    setBusy(true);
+    try { setDone(await actions.requestReturn({ code: code.trim(), phone, item, type: effType, newSize, reason, comment: comment.trim() })); }
+    catch (er) { setErr((er as Error).message); }
+    setBusy(false);
   };
   const reset = () => { setDone(null); setOrder(null); setCode(""); setPhone(""); setComment(""); setNewSize(""); };
 
@@ -247,7 +255,7 @@ function StartRequest() {
     <form onSubmit={lookup} className="space-y-4 self-start border-2 border-black p-6">
       <input required value={code} onChange={(e) => setCode(e.target.value)} placeholder="Tracking code, e.g. 3FA91C07BE" aria-label="Tracking code" className={fieldCls} />
       <input required value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="Phone used at checkout" aria-label="Phone" className={fieldCls} />
-      <button className={`${mono} w-full bg-black py-4 text-[11px] font-bold tracking-[0.15em] text-white hover:bg-neutral-800`}>Find my order</button>
+      <button disabled={busy} className={`${mono} w-full bg-black py-4 text-[11px] font-bold tracking-[0.15em] text-white hover:bg-neutral-800 disabled:opacity-50`}>{busy ? "Searching…" : "Find my order"}</button>
       {err && <p role="alert" className={`${mono} text-[10px] tracking-[0.1em] text-red-700`}>{err}</p>}
     </form>
   );
@@ -256,7 +264,7 @@ function StartRequest() {
       <div className="flex items-center justify-between"><p className={`${mono} text-[10px] font-bold tracking-[0.15em]`}>Order {order.id}</p><button type="button" onClick={() => setOrder(null)} className={`${mono} text-[10px] underline`}>Change</button></div>
       <fieldset className="space-y-2"><legend className={`${mono} mb-2 text-[10px] font-bold tracking-[0.15em]`}>Which piece</legend>
         {order.items.map((it, i) => {
-          const b = returnEligibility(order, it);
+          const b = returnEligibility(order, it, orderRets);
           return (
             <label key={i} className={`flex cursor-pointer items-start gap-3 border p-3 text-sm ${idx === i ? "border-black bg-neutral-100" : "border-black/20"}`}>
               <input type="radio" name="piece" checked={idx === i} onChange={() => { setIdx(i); setNewSize(""); }} className="mt-1 accent-black" />
@@ -281,7 +289,7 @@ function StartRequest() {
       )}
       <select value={reason} onChange={(e) => setReason(e.target.value)} aria-label="Reason" className={fieldCls}>{REASONS.map((r) => <option key={r}>{r}</option>)}</select>
       <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={3} placeholder="Anything we should know (optional)" className={fieldCls} />
-      <button disabled={!!block || (effType === "Exchange" && !sizeOpts.length)} className={`${mono} w-full bg-black py-4 text-[11px] font-bold tracking-[0.15em] text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40`}>Submit {effType.toLowerCase()} request</button>
+      <button disabled={busy || !!block || (effType === "Exchange" && !sizeOpts.length)} className={`${mono} w-full bg-black py-4 text-[11px] font-bold tracking-[0.15em] text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40`}>Submit {effType.toLowerCase()} request</button>
       {(block || err) && <p role="alert" className={`${mono} text-[10px] tracking-[0.1em] text-red-700`}>{block || err}</p>}
     </form>
   );
@@ -291,12 +299,10 @@ function ReturnStatus() {
   const [id, setId] = useState("");
   const [phone, setPhone] = useState("");
   const [res, setRes] = useState<null | ReturnReq | "none">(null);
-  const rs = useDB((d) => d.returns ?? NO_RETURNS);
-  const live = res && res !== "none" ? rs.find((x) => x.id === res.id) ?? res : res;
-  const submit = (e: React.FormEvent) => {
+  const live = res;
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const r = rs.find((x) => x.id === id.trim().toUpperCase());
-    setRes(r && (!r.phone || digits10(r.phone) === digits10(phone)) ? r : "none");
+    try { setRes((await getReturn(id.trim().toUpperCase(), phone)) ?? "none"); } catch { setRes("none"); }
   };
   return (
     <div className="space-y-6 self-start">
