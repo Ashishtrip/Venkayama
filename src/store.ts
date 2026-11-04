@@ -171,9 +171,12 @@ const load = (): DB => {
 let db: DB = load();
 const subs = new Set<() => void>();
 const emit = () => subs.forEach((f) => f());
+let warnedFull = false;
 const commit = (next: DB) => {
   db = next;
-  try { localStorage.setItem(KEY, JSON.stringify(db)); } catch { /* storage full or blocked */ }
+  try { localStorage.setItem(KEY, JSON.stringify(db)); } catch {
+    if (typeof window !== "undefined" && !warnedFull) { warnedFull = true; window.alert("Browser storage is full, so the latest change was not saved. Remove some uploaded photos and try again."); }
+  }
   emit();
 };
 if (typeof window !== "undefined") {
@@ -288,7 +291,7 @@ export function discountFor(code: string, subtotal: number): { promo?: Promo; am
   return { promo: c, amount };
 }
 
-export const compressImage = (file: File, max = 900): Promise<string> =>
+export const compressImage = (file: File, max = 1600): Promise<string> =>
   new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const im = new Image();
@@ -297,9 +300,11 @@ export const compressImage = (file: File, max = 900): Promise<string> =>
       const c = document.createElement("canvas");
       c.width = Math.round(im.width * s);
       c.height = Math.round(im.height * s);
-      c.getContext("2d")!.drawImage(im, 0, 0, c.width, c.height);
+      const ctx = c.getContext("2d")!;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(im, 0, 0, c.width, c.height);
       URL.revokeObjectURL(url);
-      resolve(c.toDataURL("image/jpeg", 0.8));
+      resolve(c.toDataURL("image/jpeg", 0.92));
     };
     im.onerror = () => reject(new Error("Not an image"));
     im.src = url;
