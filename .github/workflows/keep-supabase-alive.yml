@@ -1,0 +1,45 @@
+# Pings the Supabase database every 4 days to prevent the free-tier
+# project from pausing due to inactivity (7-day threshold).
+#
+# It makes a lightweight query via PostgREST to query the `products` table
+# which forces Postgres to execute an actual query and stay active.
+#
+# Optional setup:
+#   You can add these secrets in repo Settings → Secrets and variables → Actions,
+#   or it will automatically use the default project credentials from info.tsx.
+
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    # Runs at 06:00 UTC every 4 days
+    - cron: "0 6 */4 * *"
+  workflow_dispatch: # Allow manual trigger from the GitHub Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ping Supabase Database
+        env:
+          PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID || 'gnfnbnlghioanykieszf' }}
+          ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduZm5ibmxnaGlvYW55a2llc3pmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NTIzNTksImV4cCI6MjEwNjUyODM1OX0.lOdZV0ek3myYV8deFcFlemq3F0OCqDHyF7Z29hKPRzE' }}
+        run: |
+          URL="https://${PROJECT_ID}.supabase.co/rest/v1/products?select=id&limit=1"
+
+          echo "→ Querying database at ${URL} ..."
+
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: ${ANON_KEY}" \
+            -H "Authorization: Bearer ${ANON_KEY}" \
+            "${URL}")
+
+          echo "← Response status: ${STATUS}"
+
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+            echo "✅ Supabase database is active and queried successfully (HTTP ${STATUS})"
+          else
+            echo "❌ Unexpected status code: ${STATUS}"
+            exit 1
+          fi
