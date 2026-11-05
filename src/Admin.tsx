@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import OnionLogo from "./components/OnionLogo";
 import {
   actions, isMono, loadAdmin, NO_RETURNS, useSync, CATS, catLabel, compressImage, FLOW, IMAGES, imgSrc, itemsText, RFLOW, rLabel, sizeKeys, sortSizes, totalStock, useDB,
+  DEFAULT_STOREFRONT, type CategoryThumb, type DropThumb, type AboutPoster, type HeroCard, type StorefrontConfig,
   type Look, type ReturnReq, type RStatus, type Order, type OrderItem, type Product, type Promo, type Status, type Zone,
 } from "./store";
 
@@ -141,6 +142,7 @@ function FormActions({ onCancel, label, error }: { onCancel: () => void; label: 
 
 function ImagePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [err, setErr] = useState("");
+  const products = useDB((d) => d.products);
   const upload = async (f?: File) => {
     if (!f) return;
     try { onChange(await compressImage(f)); setErr(""); } catch (e) { setErr((e as Error).message || "That file is not an image."); }
@@ -148,22 +150,32 @@ function ImagePicker({ value, onChange }: { value: string; onChange: (v: string)
   return (
     <div>
       <div className="flex gap-3">
-        <div className="h-28 w-24 shrink-0 bg-neutral-200">{value && <img src={imgSrc(value)} alt="Selected" className={`size-full object-cover ${isMono(value) ? "grayscale" : ""}`} />}</div>
+        <div className="h-28 w-24 shrink-0 bg-neutral-200">{value && <img src={imgSrc(value)} alt="Selected" className="size-full object-cover" />}</div>
         <div className="min-w-0 flex-1 space-y-2">
           <input value={/^(data|idb):/.test(value) ? "Uploaded image" : value} readOnly={/^(data|idb):/.test(value)} onChange={(e) => onChange(e.target.value)} placeholder="Image URL or filename" className={inputCls} />
-          <label className={`${btnLine} inline-block cursor-pointer`}>
-            Upload image
-            <input type="file" accept="image/*" className="sr-only" onChange={(e) => upload(e.target.files?.[0])} />
-          </label>
+          <div className="flex flex-wrap gap-2">
+            <label className={`${btnLine} inline-block cursor-pointer`}>
+              Upload custom image
+              <input type="file" accept="image/*" className="sr-only" onChange={(e) => upload(e.target.files?.[0])} />
+            </label>
+          </div>
           {err && <p className={`${mono} text-[10px] text-red-700`}>{err}</p>}
         </div>
       </div>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {IMAGES.map((i) => (
-          <button type="button" key={i} onClick={() => onChange(i)} aria-label={`Use ${i}`} aria-pressed={value === i} className={`h-14 w-11 overflow-hidden border-2 ${value === i ? "border-black" : "border-transparent"}`}>
-            <img src={imgSrc(i)} alt="" className="size-full object-cover grayscale" />
-          </button>
-        ))}
+      <div className="mt-3">
+        <p className={`${mono} mb-1.5 text-[8px] font-bold tracking-wider text-neutral-500`}>Quick select from shop archive & assets:</p>
+        <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto border border-black/10 p-1.5 bg-neutral-50">
+          {products.slice(0, 16).map((p) => (
+            <button type="button" key={p.id} onClick={() => onChange(p.img)} title={p.name} aria-label={`Use ${p.name}`} aria-pressed={value === p.img} className={`relative h-14 w-11 shrink-0 overflow-hidden border-2 bg-neutral-200 ${value === p.img ? "border-black ring-1 ring-black" : "border-transparent opacity-80 hover:opacity-100"}`}>
+              <img src={imgSrc(p.img)} alt={p.name} className="size-full object-cover" />
+            </button>
+          ))}
+          {IMAGES.map((i) => (
+            <button type="button" key={i} onClick={() => onChange(i)} aria-label={`Use ${i}`} aria-pressed={value === i} className={`h-14 w-11 shrink-0 overflow-hidden border-2 ${value === i ? "border-black ring-1 ring-black" : "border-transparent opacity-80 hover:opacity-100"}`}>
+              <img src={imgSrc(i)} alt="" className="size-full object-cover" />
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -420,8 +432,445 @@ function LookForm({ initial, onClose }: { initial?: Look; onClose: () => void })
   );
 }
 
+function StorefrontEditor() {
+  const storefront = useDB((d) => d.storefront ?? DEFAULT_STOREFRONT);
+  const products = useDB((d) => d.products);
+  const [cfg, setCfg] = useState<StorefrontConfig>(storefront);
+  const [saved, setSaved] = useState(false);
+  const [activeSection, setActiveSection] = useState<"hero" | "categories" | "drops" | "about">("hero");
+
+  useEffect(() => {
+    setCfg(storefront);
+  }, [storefront]);
+
+  const save = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    actions.updateStorefront(cfg);
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 2200);
+  };
+
+  const resetDefaults = () => {
+    if (window.confirm("Reset all hero cards, category thumbnails, drops, and poster to initial defaults?")) {
+      setCfg(DEFAULT_STOREFRONT);
+      actions.updateStorefront(DEFAULT_STOREFRONT);
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2200);
+    }
+  };
+
+  const patchHero1 = (v: Partial<HeroCard>) => setCfg((c) => ({ ...c, hero1: { ...c.hero1, ...v } }));
+  const patchHero2 = (v: Partial<HeroCard>) => setCfg((c) => ({ ...c, hero2: { ...c.hero2, ...v } }));
+  const patchCategory = (idx: number, v: Partial<CategoryThumb>) =>
+    setCfg((c) => ({
+      ...c,
+      categories: c.categories.map((cat, i) => (i === idx ? { ...cat, ...v } : cat)),
+    }));
+  const patchDrop = (idx: number, v: Partial<DropThumb>) =>
+    setCfg((c) => ({
+      ...c,
+      pastDrops: c.pastDrops.map((d, i) => (i === idx ? { ...d, ...v } : d)),
+    }));
+  const patchAbout = (v: Partial<AboutPoster>) =>
+    setCfg((c) => ({ ...c, aboutPoster: { ...c.aboutPoster, ...v } }));
+
+  const pickProductForHero = (heroNum: 1 | 2, prodName: string) => {
+    const p = products.find((x) => x.name === prodName);
+    if (!p) return;
+    const patch: Partial<HeroCard> = {
+      productName: p.name,
+      title: p.name.charAt(0) + p.name.slice(1).toLowerCase() + " Tee",
+      price: p.price || 1499,
+      img: p.img,
+      tag: p.tag || "HERO ARCHIVE",
+      badge: p.badge || "FAST DISPATCH",
+    };
+    if (heroNum === 1) patchHero1(patch);
+    else patchHero2(patch);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Control bar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border border-black/15 bg-white p-4">
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              ["hero", "01 // Hero Cards"],
+              ["categories", "02 // Categories"],
+              ["drops", "03 // Drops"],
+              ["about", "04 // About Poster"],
+            ] as const
+          ).map(([sec, label]) => (
+            <button
+              key={sec}
+              type="button"
+              onClick={() => setActiveSection(sec)}
+              className={`${mono} px-4 py-2 text-[10px] font-bold tracking-wider transition ${
+                activeSection === sec ? "bg-black text-white" : "border border-black/20 hover:bg-neutral-100"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={resetDefaults} className={`${btnLine} text-neutral-600`}>
+            Reset defaults
+          </button>
+          <button type="button" onClick={() => save()} className={btnDark}>
+            Save changes
+          </button>
+          {saved && <span className={`${mono} text-[10px] font-bold text-emerald-700 animate-pulse`}>✓ Saved live</span>}
+        </div>
+      </div>
+
+      {/* SECTION 1: HERO CARDS */}
+      {activeSection === "hero" && (
+        <div className="grid gap-6 xl:grid-cols-2">
+          {/* Hero Card 1 */}
+          <Panel title="Primary Hero Card (Left)" kicker="Hero slot 01 — The Guardian">
+            <div className="space-y-4">
+              <Field label="Link to product in shop" hint="Selecting a product auto-fills details and links to its page.">
+                <select
+                  value={cfg.hero1.productName}
+                  onChange={(e) => pickProductForHero(1, e.target.value)}
+                  className={inputCls}
+                >
+                  <option value="">-- Choose product or keep custom --</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.name}>
+                      {p.name} ({p.sku}) — {inr(p.price || 1499)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Display title">
+                  <input
+                    value={cfg.hero1.title}
+                    onChange={(e) => patchHero1({ title: e.target.value })}
+                    className={inputCls}
+                    placeholder="The Guardian"
+                  />
+                </Field>
+                <Field label="Price (₹)">
+                  <Num value={cfg.hero1.price || 1499} onChange={(n) => patchHero1({ price: n })} />
+                </Field>
+                <Field label="Spec tag">
+                  <input
+                    value={cfg.hero1.tag}
+                    onChange={(e) => patchHero1({ tag: e.target.value })}
+                    className={inputCls}
+                    placeholder="HERO ARCHIVE // DROP 04"
+                  />
+                </Field>
+                <Field label="Badge pill">
+                  <input
+                    value={cfg.hero1.badge}
+                    onChange={(e) => patchHero1({ badge: e.target.value })}
+                    className={inputCls}
+                    placeholder="FAST DISPATCH"
+                  />
+                </Field>
+              </div>
+
+              <Field label="Subtitle / specs">
+                <input
+                  value={cfg.hero1.subtitle || ""}
+                  onChange={(e) => patchHero1({ subtitle: e.target.value })}
+                  className={inputCls}
+                  placeholder="Series 004 // Heritage Mask Spec"
+                />
+              </Field>
+
+              <Field label="Hero Card Image" hint="Raw high-res image. No filters are applied.">
+                <ImagePicker value={cfg.hero1.img} onChange={(v) => patchHero1({ img: v })} />
+              </Field>
+
+              {/* Live Preview Card */}
+              <div className="border border-black/10 bg-neutral-50 p-4">
+                <p className={`${mono} mb-2 text-[9px] font-bold tracking-wider text-neutral-500`}>Card Preview</p>
+                <div className="relative h-64 overflow-hidden border border-black bg-[#251e19] text-white">
+                  <img src={imgSrc(cfg.hero1.img)} alt="Preview" className="absolute inset-0 size-full object-cover object-[78%_38%]" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+                  <span className={`${mono} absolute left-3 top-3 border border-black/10 bg-white/95 px-2 py-0.5 text-[8px] font-bold text-black`}>{cfg.hero1.tag}</span>
+                  <div className="absolute inset-x-4 bottom-4 flex items-end justify-between">
+                    <div>
+                      <p className={`${mono} text-[8px] tracking-wider text-amber-300`}>{cfg.hero1.subtitle}</p>
+                      <h4 className={`${disp} text-2xl leading-none`}>{cfg.hero1.title}</h4>
+                      <p className={`${mono} mt-1 text-xs font-bold`}>{inr(cfg.hero1.price || 1499)}</p>
+                    </div>
+                    <span className="grid size-12 place-items-center rounded-full border border-white/60 bg-black/50 text-center font-display text-[9px] leading-tight">{cfg.hero1.badge}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Panel>
+
+          {/* Hero Card 2 */}
+          <Panel title="Secondary Hero Card (Right)" kicker="Hero slot 02 — The Discipline">
+            <div className="space-y-4">
+              <Field label="Link to product in shop" hint="Selecting a product auto-fills details and links to its page.">
+                <select
+                  value={cfg.hero2.productName}
+                  onChange={(e) => pickProductForHero(2, e.target.value)}
+                  className={inputCls}
+                >
+                  <option value="">-- Choose product or keep custom --</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.name}>
+                      {p.name} ({p.sku}) — {inr(p.price || 1499)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Display title">
+                  <input
+                    value={cfg.hero2.title}
+                    onChange={(e) => patchHero2({ title: e.target.value })}
+                    className={inputCls}
+                    placeholder="The Discipline"
+                  />
+                </Field>
+                <Field label="Price (₹)">
+                  <Num value={cfg.hero2.price || 1499} onChange={(n) => patchHero2({ price: n })} />
+                </Field>
+                <Field label="Spec tag">
+                  <input
+                    value={cfg.hero2.tag}
+                    onChange={(e) => patchHero2({ tag: e.target.value })}
+                    className={inputCls}
+                    placeholder="DARK VINTAGE WASH"
+                  />
+                </Field>
+                <Field label="Badge pill">
+                  <input
+                    value={cfg.hero2.badge}
+                    onChange={(e) => patchHero2({ badge: e.target.value })}
+                    className={inputCls}
+                    placeholder="LIMITED DROP"
+                  />
+                </Field>
+              </div>
+
+              <Field label="Subtitle / specs">
+                <input
+                  value={cfg.hero2.subtitle || ""}
+                  onChange={(e) => patchHero2({ subtitle: e.target.value })}
+                  className={inputCls}
+                  placeholder="Mindset Over Everything"
+                />
+              </Field>
+
+              <Field label="Circular seal stamp text" hint="Appears as the official seal watermark">
+                <textarea
+                  rows={2}
+                  value={cfg.hero2.badgeNote || ""}
+                  onChange={(e) => patchHero2({ badgeNote: e.target.value })}
+                  className={inputCls}
+                  placeholder="100% Sri Lankan cotton&#10;Made in India"
+                />
+              </Field>
+
+              <Field label="Hero Card Image" hint="Raw high-res image. No filters are applied.">
+                <ImagePicker value={cfg.hero2.img} onChange={(v) => patchHero2({ img: v })} />
+              </Field>
+
+              {/* Live Preview Card */}
+              <div className="border border-black/10 bg-neutral-50 p-4">
+                <p className={`${mono} mb-2 text-[9px] font-bold tracking-wider text-neutral-500`}>Card Preview</p>
+                <div className="relative h-64 overflow-hidden border border-black bg-[#171717] text-white">
+                  <img src={imgSrc(cfg.hero2.img)} alt="Preview" className="absolute inset-0 size-full object-cover object-[78%_38%]" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+                  <span className={`${mono} absolute left-3 top-3 bg-black px-2 py-0.5 text-[8px] font-bold text-white`}>{cfg.hero2.tag}</span>
+                  {cfg.hero2.badgeNote && (
+                    <div className="absolute right-3 top-3 flex size-14 items-center justify-center rounded-full bg-white/95 p-1 text-center shadow">
+                      <span className={`${mono} whitespace-pre-line text-[6px] font-bold text-black`}>{cfg.hero2.badgeNote}</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-x-4 bottom-4 flex items-end justify-between">
+                    <div>
+                      <p className={`${mono} text-[8px] tracking-wider text-white/70`}>{cfg.hero2.subtitle}</p>
+                      <h4 className={`${disp} text-2xl leading-none`}>{cfg.hero2.title}</h4>
+                      <p className={`${mono} mt-1 text-xs font-bold`}>{inr(cfg.hero2.price || 1499)}</p>
+                    </div>
+                    <span className="grid size-12 place-items-center rounded-full border border-white/60 bg-black/50 text-center font-display text-[9px] leading-tight">{cfg.hero2.badge}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Panel>
+        </div>
+      )}
+
+      {/* SECTION 2: CATEGORY THUMBNAILS */}
+      {activeSection === "categories" && (
+        <Panel title="Core Department Thumbnails" kicker="Home page categories: T-shirts, Hoodies, Caps, Totes">
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+            {cfg.categories.map((c, i) => (
+              <div key={c.cat} className="space-y-3 border border-black/15 bg-neutral-50 p-4">
+                <p className={`${mono} text-[11px] font-bold tracking-wider`}>
+                  Department {i + 1} ({c.cat.toUpperCase()})
+                </p>
+                <Field label="Section Header Tag">
+                  <input
+                    value={c.n}
+                    onChange={(e) => patchCategory(i, { n: e.target.value })}
+                    className={inputCls}
+                  />
+                </Field>
+                <Field label="Title text (comma separated lines)">
+                  <input
+                    value={c.t.join(", ")}
+                    onChange={(e) =>
+                      patchCategory(i, {
+                        t: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+                      })
+                    }
+                    className={inputCls}
+                    placeholder="T-, SHIRTS"
+                  />
+                </Field>
+                <Field label="Thumbnail Image">
+                  <ImagePicker value={c.img} onChange={(v) => patchCategory(i, { img: v })} />
+                </Field>
+                <div className="relative aspect-[3/4] overflow-hidden bg-black text-white">
+                  <img src={imgSrc(c.img)} alt="" className="absolute inset-0 size-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent" />
+                  <span className={`${mono} absolute left-3 top-3 text-[8px] text-white/80`}>{c.n}</span>
+                  <div className="absolute inset-x-3 bottom-3">
+                    <p className={`${disp} text-2xl leading-none`}>{c.t.join(" ")}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
+
+      {/* SECTION 3: PAST DROPS THUMBNAILS */}
+      {activeSection === "drops" && (
+        <Panel title="Drops Section Media" kicker="Thumbnails for drops archive">
+          <div className="grid gap-6 md:grid-cols-3">
+            {cfg.pastDrops.map((d, i) => (
+              <div key={d.id || d.name} className="space-y-3 border border-black/15 bg-neutral-50 p-4">
+                <p className={`${mono} text-[11px] font-bold tracking-wider`}>
+                  {d.name}
+                </p>
+                <Field label="Drop label">
+                  <input
+                    value={d.name}
+                    onChange={(e) => patchDrop(i, { name: e.target.value })}
+                    className={inputCls}
+                  />
+                </Field>
+                <Field label="Drop Title">
+                  <input
+                    value={d.title}
+                    onChange={(e) => patchDrop(i, { title: e.target.value })}
+                    className={inputCls}
+                  />
+                </Field>
+                <Field label="Status badge text">
+                  <input
+                    value={d.status}
+                    onChange={(e) => patchDrop(i, { status: e.target.value })}
+                    className={inputCls}
+                    placeholder="SOLD OUT IN 41 MIN"
+                  />
+                </Field>
+                <Field label="Drop Image">
+                  <ImagePicker value={d.img} onChange={(v) => patchDrop(i, { img: v })} />
+                </Field>
+                <div className="relative aspect-[4/3] overflow-hidden bg-black text-white">
+                  <img src={imgSrc(d.img)} alt="" className="absolute inset-0 size-full object-cover opacity-80" />
+                  <div className="absolute inset-x-4 bottom-4">
+                    <p className={`${mono} text-[9px] text-white/70`}>{d.name}</p>
+                    <p className={`${disp} text-2xl`}>{d.title}</p>
+                    <p className={`${mono} text-[8px] text-red-400 font-bold`}>{d.status}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
+
+      {/* SECTION 4: ABOUT POSTER */}
+      {activeSection === "about" && (
+        <Panel title="About Section Archive Poster" kicker="Manifesto background graphic & poster">
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="space-y-4">
+              <Field label="Archive Tag">
+                <input
+                  value={cfg.aboutPoster.tag}
+                  onChange={(e) => patchAbout({ tag: e.target.value })}
+                  className={inputCls}
+                  placeholder="Madras archive // Dispatch 004"
+                />
+              </Field>
+              <Field label="Featured Quote">
+                <input
+                  value={cfg.aboutPoster.quote}
+                  onChange={(e) => patchAbout({ quote: e.target.value })}
+                  className={inputCls}
+                  placeholder='"We wear our roots like armor."'
+                />
+              </Field>
+              <Field label="Subtext description">
+                <textarea
+                  rows={3}
+                  value={cfg.aboutPoster.subtext}
+                  onChange={(e) => patchAbout({ subtext: e.target.value })}
+                  className={inputCls}
+                  placeholder="No fast fashion. No plastic blends. Pure heavy Sri Lankan cotton, made in India."
+                />
+              </Field>
+              <Field label="Poster Image">
+                <ImagePicker value={cfg.aboutPoster.img} onChange={(v) => patchAbout({ img: v })} />
+              </Field>
+            </div>
+            <div>
+              <p className={`${mono} mb-2 text-[9px] font-bold tracking-wider text-neutral-500`}>Poster Preview</p>
+              <div className="relative h-[420px] overflow-hidden bg-neutral-900 text-white">
+                <img src={imgSrc(cfg.aboutPoster.img)} alt="Preview" className="absolute inset-0 size-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+                <span className={`${mono} absolute left-4 top-4 bg-white px-3 py-1.5 text-[9px] font-bold text-black`}>
+                  {cfg.aboutPoster.tag}
+                </span>
+                <div className="absolute inset-x-6 bottom-6">
+                  <p className={`${mono} mb-2 text-[10px] tracking-wider text-white/70`}>Manifesto excerpt</p>
+                  <p className={`${disp} text-3xl leading-tight`}>{cfg.aboutPoster.quote}</p>
+                  <p className={`${mono} mt-2 text-[10px] text-white/80`}>{cfg.aboutPoster.subtext}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Panel>
+      )}
+
+      {/* Bottom Save Action */}
+      <div className="flex items-center justify-between border-t-2 border-black pt-4">
+        <a href="#/" className={`${mono} text-[10px] font-bold tracking-wider underline hover:text-black`}>
+          ← View storefront
+        </a>
+        <div className="flex items-center gap-3">
+          {saved && <span className={`${mono} text-[10px] font-bold text-emerald-700`}>Saved live ✓</span>}
+          <button type="button" onClick={() => save()} className={btnDark}>
+            Save all storefront changes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------------- Admin ---------------- */
-const TABS = ["Overview", "Orders", "Returns", "Products", "Customers", "Promos", "Shipping", "Lookbook"] as const;
+const TABS = ["Overview", "Orders", "Returns", "Products", "Storefront", "Customers", "Promos", "Shipping", "Lookbook"] as const;
 type Tab = (typeof TABS)[number];
 
 type Dlg =
@@ -820,6 +1269,8 @@ export default function Admin({ onSignOut, userEmail }: { onSignOut?: () => void
             </div>
           </div>
         )}
+
+        {tab === "Storefront" && <StorefrontEditor />}
 
         {tab === "Customers" && (
           <Panel title="Customer book" kicker={`${customers.length} customers, built from orders`} right={

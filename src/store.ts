@@ -37,7 +37,117 @@ export type ReturnReq = {
   status: RStatus; createdAt: number; history: { t: number; s: RStatus; note?: string }[];
   courier: string; refund: number; note: string;
 };
-export type DB = { returns?: ReturnReq[]; products: Product[]; orders: Order[]; promos: Promo[]; zones: Zone[]; looks: Look[]; settings: Settings; activity: Activity[]; counter: number };
+export type DB = {
+  returns?: ReturnReq[];
+  products: Product[];
+  orders: Order[];
+  promos: Promo[];
+  zones: Zone[];
+  looks: Look[];
+  settings: Settings;
+  activity: Activity[];
+  counter: number;
+  storefront?: StorefrontConfig;
+};
+
+export type HeroCard = {
+  productId?: string;
+  productName: string;
+  tag: string;
+  title: string;
+  subtitle?: string;
+  price?: number;
+  badge: string;
+  img: string;
+  badgeNote?: string;
+};
+
+export type CategoryThumb = {
+  cat: string;
+  n: string;
+  t: string[];
+  img: string;
+};
+
+export type DropThumb = {
+  id: string;
+  name: string;
+  title: string;
+  status: string;
+  img: string;
+};
+
+export type AboutPoster = {
+  img: string;
+  tag: string;
+  quote: string;
+  subtext: string;
+};
+
+export type StorefrontConfig = {
+  hero1: HeroCard;
+  hero2: HeroCard;
+  categories: CategoryThumb[];
+  pastDrops: DropThumb[];
+  aboutPoster: AboutPoster;
+};
+
+export const DEFAULT_STOREFRONT: StorefrontConfig = {
+  hero1: {
+    productName: "THE GUARDIAN",
+    tag: "HERO ARCHIVE // DROP 04",
+    title: "The Guardian",
+    subtitle: "Series 004 // Heritage Mask Spec",
+    price: 1499,
+    badge: "FAST DISPATCH",
+    img: "/products/36.jpg",
+    badgeNote: "ORIGINAL ARCHIVE",
+  },
+  hero2: {
+    productName: "DISCIPLINE",
+    tag: "DARK VINTAGE WASH",
+    title: "The Discipline",
+    subtitle: "Mindset Over Everything",
+    price: 1499,
+    badge: "LIMITED DROP",
+    img: "/products/14.jpg",
+    badgeNote: "100% Sri Lankan cotton\nMade in India",
+  },
+  categories: [
+    { n: "01 // HEAVY DROP", t: ["T-", "SHIRTS"], img: "/products/01.jpg", cat: "tees" },
+    { n: "02 // HEAVY TERRY", t: ["HOODIES"], img: "ce1cd.png", cat: "hoodies" },
+    { n: "03 // SNAPBACKS & 5-PANELS", t: ["CAPS"], img: "37da8.png", cat: "caps" },
+    { n: "04 // RAW MERCH", t: ["TOTES"], img: "237a4.png", cat: "acc" },
+  ],
+  pastDrops: [
+    { id: "drop-03", name: "Drop 03", title: "Temple Run", status: "SOLD OUT IN 41 MIN", img: "f1497.png" },
+    { id: "drop-02", name: "Drop 02", title: "Hoarding", status: "SOLD OUT IN 3 HRS", img: "9bdff.png" },
+    { id: "drop-01", name: "Drop 01", title: "Zero", status: "SOLD OUT IN 1 DAY", img: "83098.png" },
+  ],
+  aboutPoster: {
+    img: "de740.png",
+    tag: "Madras archive // Dispatch 004",
+    quote: '"We wear our roots like armor."',
+    subtext: "No fast fashion. No plastic blends. Pure heavy Sri Lankan cotton, made in India.",
+  },
+};
+
+const STOREFRONT_KEY = "venkayam-storefront-v2";
+export function loadStorefront(): StorefrontConfig {
+  try {
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem(STOREFRONT_KEY) : null;
+    if (raw) return { ...DEFAULT_STOREFRONT, ...JSON.parse(raw) };
+  } catch {}
+  return DEFAULT_STOREFRONT;
+}
+
+export function saveStorefront(cfg: StorefrontConfig) {
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(STOREFRONT_KEY, JSON.stringify(cfg));
+    }
+  } catch {}
+}
 
 export const CATS: [string, string][] = [["tees", "Tees"], ["hoodies", "Hoodies"], ["caps", "Caps"], ["acc", "Accessories"]];
 export const catLabel = (c: string) => CATS.find(([k]) => k === c)?.[1] ?? c;
@@ -184,7 +294,7 @@ export function seed(): DB {
 const sb = getSupabase();
 const LEGACY_KEY = "venkayam-db-v4";
 
-let db: DB = { products: [], orders: [], promos: [], zones: [], looks: [], returns: [], settings: { freeShip: 999, shipFee: 79 }, activity: [], counter: 1 };
+let db: DB = { products: [], orders: [], promos: [], zones: [], looks: [], returns: [], settings: { freeShip: 999, shipFee: 79 }, activity: [], counter: 1, storefront: loadStorefront() };
 const subs = new Set<() => void>();
 const emit = () => subs.forEach((f) => f());
 const commit = (next: DB) => { db = next; emit(); };
@@ -232,11 +342,19 @@ let loading: Promise<void> | null = null;
 
 async function loadPublic() {
   const [p, z, l, s] = await Promise.all([
-    sb.from("products").select("*").order("sort"), sb.from("zones").select("*").order("sort"),
-    sb.from("looks").select("*").order("sort"), sb.from("settings").select("*").eq("id", 1).maybeSingle(),
+    sb.from("products").select("*").order("sort"),
+    sb.from("zones").select("*").order("sort"),
+    sb.from("looks").select("*").order("sort"),
+    sb.from("settings").select("*").eq("id", 1).maybeSingle(),
   ]);
   const settings = s.data ? { freeShip: s.data.free_ship, shipFee: s.data.ship_fee } : db.settings;
-  commit({ ...db, products: check<Row[]>(p).map(fromProduct), zones: check<Row[]>(z).map(fromZone), looks: check<Row[]>(l).map(fromLook), settings });
+  commit({
+    ...db,
+    products: check<Row[]>(p).map(fromProduct),
+    zones: check<Row[]>(z).map(fromZone),
+    looks: check<Row[]>(l).map(fromLook),
+    settings,
+  });
 }
 async function loadAdminData() {
   const [o, r, c, a] = await Promise.all([
@@ -330,6 +448,11 @@ export const actions = {
   setSettings(s: Settings) {
     commit(withLog({ ...db, settings: s }, "Shipping settings updated", "edit"));
     void exec("settings", sb.from("settings").update({ free_ship: s.freeShip, ship_fee: s.shipFee }).eq("id", 1));
+  },
+  updateStorefront(patch: Partial<StorefrontConfig>) {
+    const next = { ...(db.storefront ?? DEFAULT_STOREFRONT), ...patch };
+    saveStorefront(next);
+    commit(withLog({ ...db, storefront: next }, "Storefront visuals updated", "edit"));
   },
   setStock(id: string, size: string, qty: number) {
     const v = Math.max(0, qty);

@@ -3,7 +3,7 @@ import OnionLogo from "./components/OnionLogo";
 import Cooking from "./components/Cooking";
 import AdminGate from "./AdminGate";
 import { Lookbook, TrackOrder, Shipping, Returns, SizeMatrix } from "./Pages";
-import { isMono, STUDIO, useDB, imgSrc, stockLabel, offLabel, sortSizes, type Product } from "./store";
+import { isMono, STUDIO, useDB, imgSrc, stockLabel, offLabel, sortSizes, DEFAULT_STOREFRONT, type Product } from "./store";
 import AuthPage, { useSession, displayName } from "./Auth";
 import { getSupabase } from "./lib/supabase";
 import { CartProvider, useCart } from "./Cart";
@@ -96,6 +96,17 @@ function Header({ path }: { path: string }) {
 }
 
 function Hero() {
+  const storefront = useDB((d) => d.storefront ?? DEFAULT_STOREFRONT);
+  const products = useProducts();
+  const hero1 = storefront.hero1;
+  const hero2 = storefront.hero2;
+
+  const p1 = products.find((x) => x.name.toUpperCase() === hero1.productName.toUpperCase()) || products.find((x) => x.name.toLowerCase().includes("guardian"));
+  const p2 = products.find((x) => x.name.toUpperCase() === hero2.productName.toUpperCase()) || products.find((x) => x.name.toLowerCase().includes("discipline"));
+
+  const link1 = p1 ? href(p1) : go(`/product/${slug({ name: hero1.productName })}`);
+  const link2 = p2 ? href(p2) : go(`/product/${slug({ name: hero2.productName })}`);
+
   return (
     <section className="relative overflow-hidden border-b border-black/10 bg-gradient-to-b from-neutral-100/70 via-white to-white px-6 pb-12 pt-[130px] md:pt-[130px]">
       <div className="mx-auto grid max-w-[1500px] items-center gap-10 lg:grid-cols-12">
@@ -121,31 +132,95 @@ function Hero() {
           <p className={`${mono} mt-6 text-[10px] tracking-[0.15em] text-neutral-500`}>Batch: CHN-DROP-04 • Limit: 150 pcs / design</p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-[1.25fr_1fr] lg:col-span-8">
-          <article className="relative h-[480px] overflow-hidden border border-black/10 bg-neutral-200 shadow-xl lg:h-[620px]">
-            <img src={A("5b6d9.png")} alt="Model in a Tamil Noir oversized tee" className="absolute inset-0 size-full object-cover grayscale" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent" />
-            <span className={`${mono} absolute left-4 top-4 border border-black/10 bg-white/95 px-3 py-1.5 text-[9px] font-bold tracking-[0.1em]`}>Heavyweight Oversoul</span>
-            <div className="absolute inset-x-6 bottom-6 flex items-end justify-between text-white">
-              <div>
-                <p className={`${mono} mb-2 text-[10px] tracking-[0.2em] text-white/70`}>Series 004 // Hero spec</p>
-                <h2 className={`${disp} text-4xl leading-none md:text-5xl`}>Tamil Noir Oversized<br />Tee</h2>
-                <p className={`${mono} mt-2 text-xs font-bold`}>INR ₹1,499</p>
+        <div className="grid gap-5 sm:grid-cols-2 lg:col-span-8">
+          {/* Hero Card 1: The Guardian */}
+          <article className="group relative min-h-[480px] overflow-hidden border-2 border-black/15 bg-[#251e19] shadow-2xl transition duration-500 hover:border-black lg:h-[620px]">
+            <a href={link1} className="relative flex h-full flex-col justify-between p-6 focus:outline-none">
+              <img
+                src={imgSrc(hero1.img)}
+                alt={hero1.title}
+                className="absolute inset-0 size-full object-cover object-[78%_38%] transition-transform duration-700 ease-out group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-transparent transition-opacity duration-300 group-hover:from-black" />
+
+              {/* Top Row Badges */}
+              <div className="relative z-10 flex items-center justify-between gap-2">
+                <span className={`${mono} border border-black/10 bg-white/95 px-3 py-1.5 text-[9px] font-bold tracking-[0.1em] text-black shadow-sm`}>
+                  {hero1.tag}
+                </span>
+                <span className={`${mono} flex items-center gap-1.5 bg-black px-3 py-1.5 text-[9px] font-bold tracking-[0.12em] text-white shadow-sm transition group-hover:bg-red-600`}>
+                  <span>VIEW PIECE</span>
+                  <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
+                </span>
               </div>
-              <span className="grid size-16 place-items-center rounded-full border border-white/60 text-center font-display text-[11px] leading-tight">FAST<br />DISPATCH</span>
-            </div>
+
+              {/* Bottom Content */}
+              <div className="relative z-10 flex items-end justify-between gap-4 text-white">
+                <div>
+                  <p className={`${mono} mb-2 text-[10px] tracking-[0.2em] text-amber-300`}>
+                    {hero1.subtitle || "Series 004 // Heritage Mask Spec"}
+                  </p>
+                  <h2 className={`${disp} text-4xl leading-none transition-transform duration-300 group-hover:-translate-y-1 md:text-5xl`}>
+                    {hero1.title}
+                  </h2>
+                  <p className={`${mono} mt-2 text-sm font-bold text-white`}>
+                    {inr(hero1.price || p1?.price || 1499)}
+                  </p>
+                </div>
+                <span className="grid size-16 shrink-0 place-items-center rounded-full border border-white/60 bg-black/50 text-center font-display text-[10px] leading-tight text-white backdrop-blur transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110">
+                  {hero1.badge.replace(" ", "\n")}
+                </span>
+              </div>
+            </a>
           </article>
-          <article className="relative hidden h-[620px] overflow-hidden border border-black/10 bg-neutral-200 shadow-xl sm:block">
-            <img src={A("fe650.png")} alt="Kali Temple hoodie" className="absolute inset-0 size-full object-cover grayscale" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-            <span className={`${mono} absolute left-4 top-4 bg-black px-3 py-1.5 text-[9px] font-bold tracking-[0.1em] text-white`}>Off-white archive</span>
-            <div className="absolute inset-x-5 bottom-5 text-white">
-              <h3 className={`${disp} text-2xl leading-none`}>Kali Temple Hoodie</h3>
-              <p className={`${mono} mt-2 text-xs font-bold`}>₹2,999</p>
-            </div>
-            <div className="absolute right-4 top-14 flex size-24 items-center justify-center rounded-full bg-white/95 p-3 text-center shadow-lg">
-              <span className={`${mono} text-[7px] font-bold leading-tight tracking-wider`}>Official seal of authenticity<br />100% Sri Lankan cotton, made in India</span>
-            </div>
+
+          {/* Hero Card 2: The Discipline */}
+          <article className="group relative min-h-[480px] overflow-hidden border-2 border-black/15 bg-[#171717] shadow-2xl transition duration-500 hover:border-black lg:h-[620px]">
+            <a href={link2} className="relative flex h-full flex-col justify-between p-6 focus:outline-none">
+              <img
+                src={imgSrc(hero2.img)}
+                alt={hero2.title}
+                className="absolute inset-0 size-full object-cover object-[78%_38%] transition-transform duration-700 ease-out group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-transparent transition-opacity duration-300 group-hover:from-black" />
+
+              {/* Top Row Badges */}
+              <div className="relative z-10 flex items-center justify-between gap-2">
+                <span className={`${mono} bg-black px-3 py-1.5 text-[9px] font-bold tracking-[0.1em] text-white`}>
+                  {hero2.tag}
+                </span>
+                <span className={`${mono} flex items-center gap-1.5 bg-white/95 px-3 py-1.5 text-[9px] font-bold tracking-[0.12em] text-black shadow-sm transition group-hover:bg-black group-hover:text-white`}>
+                  <span>VIEW PIECE</span>
+                  <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
+                </span>
+              </div>
+
+              {hero2.badgeNote && (
+                <div className="absolute right-5 top-14 z-10 flex size-20 items-center justify-center rounded-full bg-white/95 p-2 text-center shadow-lg transition-transform duration-300 group-hover:scale-105">
+                  <span className={`${mono} whitespace-pre-line text-[7px] font-bold leading-tight tracking-wider text-black`}>
+                    {hero2.badgeNote}
+                  </span>
+                </div>
+              )}
+
+              {/* Bottom Content */}
+              <div className="relative z-10 flex items-end justify-between gap-4 text-white">
+                <div>
+                  <p className={`${mono} mb-2 text-[10px] tracking-[0.2em] text-white/70`}>
+                    {hero2.subtitle || "Mindset Over Everything"}
+                  </p>
+                  <h3 className={`${disp} text-3xl leading-none transition-transform duration-300 group-hover:-translate-y-1 sm:text-4xl`}>
+                    {hero2.title}
+                  </h3>
+                  <p className={`${mono} mt-2 text-sm font-bold text-white`}>
+                    {inr(hero2.price || p2?.price || 1499)}
+                  </p>
+                </div>
+                <span className="grid size-16 shrink-0 place-items-center rounded-full border border-white/60 bg-black/50 text-center font-display text-[10px] leading-tight text-white backdrop-blur transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110">
+                  {hero2.badge.replace(" ", "\n")}
+                </span>
+              </div>
+            </a>
           </article>
         </div>
       </div>
@@ -172,6 +247,9 @@ function Trust() {
 }
 
 function Departments() {
+  const storefront = useDB((d) => d.storefront ?? DEFAULT_STOREFRONT);
+  const categories = storefront.categories;
+
   return (
     <section className="px-6 py-20">
       <div className="mx-auto max-w-[1500px]">
@@ -183,11 +261,11 @@ function Departments() {
           <p className={`${mono} text-[10px] tracking-[0.15em] text-neutral-500`}>Engineered for southern tropics • Drop zero four</p>
         </div>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {depts.map((d) => (
-            <a key={d.n} href={go(`/shop/${d.cat}`)} className="group relative block aspect-[3/4] overflow-hidden bg-black text-white">
-              <img src={A(d.img)} alt={d.t.join("")} className="absolute inset-0 size-full object-cover grayscale transition duration-700 group-hover:scale-105" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent" />
-              <span className={`${mono} absolute left-4 top-4 text-[9px] tracking-[0.15em] text-white/80`}>{d.n}</span>
+          {categories.map((d) => (
+            <a key={d.n} href={go(`/shop/${d.cat}`)} className="group relative block aspect-[3/4] overflow-hidden bg-neutral-900 text-white">
+              <img src={imgSrc(d.img)} alt={d.t.join("")} className="absolute inset-0 size-full object-cover transition duration-700 ease-out group-hover:scale-105" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+              <span className={`${mono} absolute left-4 top-4 text-[9px] tracking-[0.15em] text-white/90`}>{d.n}</span>
               <div className="absolute inset-x-4 bottom-4">
                 <h3 className={`${disp} text-[clamp(2.5rem,6vw,5rem)] leading-[0.85]`}>{d.t.map((l) => <span key={l} className="block">{l}</span>)}</h3>
                 <p className={`${mono} mt-3 flex items-center gap-2 text-[10px] font-bold tracking-[0.15em] transition-all group-hover:gap-4`}>Explore <Arrow invert /></p>
@@ -403,17 +481,20 @@ function ProductGrid({ items }: { items: Product[] }) {
 
 function Manifesto() {
   const [copied, setCopied] = useState(false);
+  const storefront = useDB((d) => d.storefront ?? DEFAULT_STOREFRONT);
+  const poster = storefront.aboutPoster;
+
   return (
     <section className="px-6 py-24">
       <div className="mx-auto grid max-w-[1500px] items-center gap-12 lg:grid-cols-2">
         <div className="relative h-[520px] overflow-hidden bg-neutral-900 text-white">
-          <img src={A("de740.png")} alt="Riders under Chennai hoardings" className="absolute inset-0 size-full object-cover grayscale" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent" />
-          <span className={`${mono} absolute left-4 top-4 bg-white px-3 py-1.5 text-[9px] font-bold tracking-[0.1em] text-black`}>Madras archive // Dispatch 004</span>
+          <img src={imgSrc(poster.img)} alt="Madras Streetwear Archive Poster" className="absolute inset-0 size-full object-cover transition-transform duration-700 hover:scale-105" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/15 to-transparent" />
+          <span className={`${mono} absolute left-4 top-4 bg-white px-3 py-1.5 text-[9px] font-bold tracking-[0.1em] text-black`}>{poster.tag}</span>
           <div className="absolute inset-x-6 bottom-6">
             <p className={`${mono} mb-2 text-[10px] tracking-[0.2em] text-white/70`}>Manifesto excerpt</p>
-            <p className={`${disp} text-3xl leading-tight md:text-4xl`}>"We wear our roots like armor."</p>
-            <p className={`${mono} mt-2 text-[10px] tracking-wider text-white/80`}>No fast fashion. No plastic blends. Pure heavy Sri Lankan cotton, made in India.</p>
+            <p className={`${disp} text-3xl leading-tight md:text-4xl`}>{poster.quote}</p>
+            <p className={`${mono} mt-2 text-[10px] tracking-wider text-white/80`}>{poster.subtext}</p>
           </div>
         </div>
         <div>
@@ -627,7 +708,8 @@ const DROP_END = Date.now() + 6 * 864e5 + 5 * 36e5;
 function Drops() {
   const products = useProducts().filter((p) => p.drop);
   const [d, h, m, sec] = useCountdown(DROP_END);
-  const past = [["Drop 03", "Temple Run", "SOLD OUT IN 41 MIN", "f1497.png"], ["Drop 02", "Hoarding", "SOLD OUT IN 3 HRS", "9bdff.png"], ["Drop 01", "Zero", "SOLD OUT IN 1 DAY", "83098.png"]];
+  const storefront = useDB((d) => d.storefront ?? DEFAULT_STOREFRONT);
+  const past = storefront.pastDrops;
   return (
     <>
       <PageHead kicker="Drop 04 // Batch CHN-DROP-04" title="Featured collection" note="Inspired by our culture. Made for today. 150 pieces per design — when they're gone, they're archived." />
@@ -664,13 +746,13 @@ function Drops() {
         <div className="mx-auto max-w-[1500px]">
           <h2 className={`${disp} mb-8 border-b-2 border-black pb-4 text-5xl leading-none md:text-6xl`}>Past drops</h2>
           <div className="grid gap-4 sm:grid-cols-3">
-            {past.map(([n, t, s, img]) => (
-              <div key={n} className="relative aspect-[4/3] overflow-hidden bg-black text-white">
-                <img src={A(img)} alt="" className="absolute inset-0 size-full object-cover opacity-60 grayscale" />
+            {past.map((item) => (
+              <div key={item.id || item.name} className="relative aspect-[4/3] overflow-hidden bg-black text-white">
+                <img src={imgSrc(item.img)} alt={item.title} className="absolute inset-0 size-full object-cover opacity-80 transition duration-700 hover:scale-105" />
                 <div className="absolute inset-x-5 bottom-5">
-                  <p className={`${mono} text-[10px] tracking-[0.2em] text-white/70`}>{n}</p>
-                  <p className={`${disp} text-3xl`}>{t}</p>
-                  <p className={`${mono} mt-1 text-[9px] tracking-wider text-red-400`}>{s}</p>
+                  <p className={`${mono} text-[10px] tracking-[0.2em] text-white/70`}>{item.name}</p>
+                  <p className={`${disp} text-3xl`}>{item.title}</p>
+                  <p className={`${mono} mt-1 text-[9px] tracking-wider text-red-400`}>{item.status}</p>
                 </div>
               </div>
             ))}
