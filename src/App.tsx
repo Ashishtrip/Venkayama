@@ -3,7 +3,7 @@ import OnionLogo from "./components/OnionLogo";
 import Cooking from "./components/Cooking";
 import AdminGate from "./AdminGate";
 import { Lookbook, TrackOrder, Shipping, Returns, SizeMatrix } from "./Pages";
-import { isMono, STUDIO, useDB, imgSrc, stockLabel, offLabel, type Product } from "./store";
+import { isMono, STUDIO, useDB, imgSrc, stockLabel, offLabel, sortSizes, type Product } from "./store";
 import AuthPage, { useSession, displayName } from "./Auth";
 import { getSupabase } from "./lib/supabase";
 import { CartProvider, useCart } from "./Cart";
@@ -201,7 +201,8 @@ function Departments() {
 }
 
 const isShot = (p: Product) => p.img.startsWith("/products/");
-const sizesFor = (p: Product): [string, boolean][] => Object.entries(p.sizes).map(([k, n]) => [k, n > 0]);
+const sizesFor = (p: Product): [string, boolean][] =>
+  sortSizes(Object.entries(p.sizes).map(([k, n]): [string, boolean] => [k, n > 0]));
 
 function ProductCard({ p }: { p: Product }) {
   const { add } = useCart();

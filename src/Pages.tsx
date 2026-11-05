@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Cooking from "./components/Cooking";
-import { STUDIO, actions, exchangeOnly, FLOW, getReturn, imgSrc, itemsText, returnEligibility, RFLOW, rLabel, RNOTES, trackOrder, useDB, type Order, type ReturnReq, type RStatus } from "./store";
+import { STUDIO, actions, exchangeOnly, FLOW, getReturn, imgSrc, itemsText, returnEligibility, RFLOW, rLabel, RNOTES, sortSizes, trackOrder, useDB, type Order, type ReturnReq, type RStatus } from "./store";
 
 const mono = "font-mono uppercase";
 const disp = "font-display uppercase";
@@ -229,7 +229,7 @@ function StartRequest() {
   const xOnly = item ? exchangeOnly(item) : false;
   const effType = xOnly ? "Exchange" : type;
   const prod = item ? products.find((p) => p.name === item.name) : undefined;
-  const sizeOpts = prod ? Object.entries(prod.sizes).filter(([s, n]) => s !== item?.size && n >= (item?.qty ?? 1)) : [];
+  const sizeOpts = prod ? sortSizes(Object.entries(prod.sizes).filter(([s, n]) => s !== item?.size && n >= (item?.qty ?? 1))) : [];
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -351,8 +351,30 @@ export function Returns() {
 
 /* ---------- Size matrix ---------- */
 const CHARTS: Record<string, { cols: string[]; rows: [string, ...number[]][]; note: string }> = {
-  "Oversized tees": { cols: ["Chest", "Length", "Shoulder", "Sleeve"], note: "Boxy, dropped shoulder. Size down one for a regular fit.", rows: [["S", 112, 70, 51, 22], ["M", 116, 72, 53, 23], ["L", 120, 74, 55, 24], ["XL", 124, 76, 57, 25], ["XXL", 128, 78, 59, 26]] },
-  Hoodies: { cols: ["Chest", "Length", "Shoulder", "Sleeve"], note: "Relaxed and slightly cropped. Size up for a longer drape.", rows: [["S", 114, 66, 52, 60], ["M", 118, 68, 54, 61], ["L", 122, 70, 56, 62], ["XL", 126, 72, 58, 63]] },
+  "Oversized tees": {
+    cols: ["Chest", "Length", "Shoulder", "Sleeve"],
+    note: "Boxy, dropped shoulder. Size down one for a regular fit.",
+    rows: [
+      ["XS", 108, 68, 49, 21],
+      ["S", 112, 70, 51, 22],
+      ["M", 116, 72, 53, 23],
+      ["L", 120, 74, 55, 24],
+      ["XL", 124, 76, 57, 25],
+      ["XXL", 128, 78, 59, 26],
+    ],
+  },
+  Hoodies: {
+    cols: ["Chest", "Length", "Shoulder", "Sleeve"],
+    note: "Relaxed and slightly cropped. Size up for a longer drape.",
+    rows: [
+      ["XS", 110, 64, 50, 59],
+      ["S", 114, 66, 52, 60],
+      ["M", 118, 68, 54, 61],
+      ["L", 122, 70, 56, 62],
+      ["XL", 126, 72, 58, 63],
+      ["XXL", 130, 74, 60, 64],
+    ],
+  },
   Caps: { cols: ["Circumference"], note: "One size, adjustable brass buckle.", rows: [["One size", 62]] },
 };
 

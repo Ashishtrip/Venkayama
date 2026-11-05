@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import OnionLogo from "./components/OnionLogo";
 import {
-  actions, isMono, loadAdmin, NO_RETURNS, useSync, CATS, catLabel, compressImage, FLOW, IMAGES, imgSrc, itemsText, RFLOW, rLabel, sizeKeys, totalStock, useDB,
+  actions, isMono, loadAdmin, NO_RETURNS, useSync, CATS, catLabel, compressImage, FLOW, IMAGES, imgSrc, itemsText, RFLOW, rLabel, sizeKeys, sortSizes, totalStock, useDB,
   type Look, type ReturnReq, type RStatus, type Order, type OrderItem, type Product, type Promo, type Status, type Zone,
 } from "./store";
 
@@ -222,7 +222,14 @@ const blankProduct = (): Product => ({
 });
 
 function ProductForm({ initial, isNew, onClose }: { initial: Product; isNew: boolean; onClose: () => void }) {
-  const [p, setP] = useState(initial);
+  const [p, setP] = useState<Product>(() => {
+    const expected = sizeKeys(initial.cat);
+    const sizes = { ...initial.sizes };
+    for (const k of expected) {
+      if (sizes[k] === undefined) sizes[k] = sizes["XL"] !== undefined ? sizes["XL"] : 10;
+    }
+    return { ...initial, sizes };
+  });
   const [err, setErr] = useState("");
   const set = <K extends keyof Product>(k: K, v: Product[K]) => setP((x) => ({ ...x, [k]: v }));
   const setCat = (cat: string) => setP((x) => ({ ...x, cat, sizes: Object.fromEntries(sizeKeys(cat).map((k) => [k, x.sizes[k] ?? 10])) }));
@@ -250,8 +257,8 @@ function ProductForm({ initial, isNew, onClose }: { initial: Product; isNew: boo
         <div className="md:col-span-2"><span className={`${mono} mb-1 block text-[9px] font-bold tracking-[0.15em] text-neutral-600`}>More photos</span><GalleryPicker cover={p.img} value={p.gallery ?? []} onChange={(g) => set("gallery", g)} onCover={(img, rest) => setP({ ...p, img, gallery: rest })} /></div>
         <div className="md:col-span-2">
           <p className={`${mono} mb-2 text-[9px] font-bold tracking-[0.15em] text-neutral-600`}>Stock by size</p>
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-            {Object.keys(p.sizes).map((s) => (
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+            {sortSizes(Object.keys(p.sizes)).map((s) => (
               <Field key={s} label={s}><Num value={p.sizes[s]} onChange={(n) => set("sizes", { ...p.sizes, [s]: Math.max(0, n) })} /></Field>
             ))}
           </div>
@@ -281,11 +288,11 @@ function OrderForm({ initial, onClose }: { initial?: Order; onClose: () => void 
   const patch = (i: number, v: Partial<OrderItem>) => setItems(o.items.map((it, k) => (k === i ? { ...it, ...v } : it)));
   const pick = (i: number, name: string) => {
     const p = products.find((x) => x.name === name);
-    if (p) patch(i, { name, price: p.price, size: Object.keys(p.sizes)[0] });
+    if (p) patch(i, { name, price: p.price, size: sortSizes(Object.keys(p.sizes))[0] });
   };
   const addItem = () => {
     const p = products[0];
-    if (p) setItems([...o.items, { name: p.name, size: Object.keys(p.sizes)[0], qty: 1, price: p.price }]);
+    if (p) setItems([...o.items, { name: p.name, size: sortSizes(Object.keys(p.sizes))[0], qty: 1, price: p.price }]);
   };
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -316,7 +323,7 @@ function OrderForm({ initial, onClose }: { initial?: Order; onClose: () => void 
           <div className="space-y-2">
             {o.items.map((it, i) => {
               const p = products.find((x) => x.name === it.name);
-              const sizes = p ? Object.keys(p.sizes) : [it.size];
+              const sizes = p ? sortSizes(Object.keys(p.sizes)) : [it.size];
               return (
                 <div key={i} className="grid grid-cols-[1fr_90px_70px_auto] items-center gap-2">
                   <select aria-label="Product" value={it.name} onChange={(e) => pick(i, e.target.value)} className={inputCls}>
@@ -791,8 +798,8 @@ export default function Admin({ onSignOut, userEmail }: { onSignOut?: () => void
                           <button onClick={() => ask(`Delete "${p.name}"? It disappears from the shop immediately.`, () => actions.remove("products", p.id, p.name))} className={btnDanger}>Delete</button>
                         </div>
                       </div>
-                      <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
-                        {Object.entries(p.sizes).map(([s, v]) => {
+                      <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
+                        {sortSizes(Object.entries(p.sizes)).map(([s, v]) => {
                           const low = v <= p.threshold;
                           return (
                             <div key={s} className={`border p-2 ${v === 0 ? "border-red-700 bg-red-50" : low ? "border-amber-500 bg-amber-50" : "border-black/15"}`}>
