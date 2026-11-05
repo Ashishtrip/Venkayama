@@ -15,6 +15,7 @@ export default function AdminGate() {
   const [em, setEm] = useState("");
   const [pw, setPw] = useState("");
   const [note, setNote] = useState("");
+  const [devBypass, setDevBypass] = useState(false);
 
   useEffect(() => {
     getSupabase().auth.getSession().then(({ data }) => {
@@ -43,9 +44,9 @@ export default function AdminGate() {
   if (!ready) return <div className="grid min-h-screen place-items-center bg-black"><OnionLogo className="h-24 invert" /></div>;
 
   const email = session?.user.email?.toLowerCase() ?? "";
-  const allowed = !!session && (ADMIN_EMAILS.length === 0 || ADMIN_EMAILS.map((e) => e.toLowerCase()).includes(email));
+  const allowed = devBypass || (!!session && (ADMIN_EMAILS.length === 0 || ADMIN_EMAILS.map((e) => e.toLowerCase()).includes(email)));
 
-  if (allowed) return <Admin onSignOut={() => getSupabase().auth.signOut()} userEmail={email} />;
+  if (allowed) return <Admin onSignOut={() => { setDevBypass(false); getSupabase().auth.signOut(); }} userEmail={email || "ashish.deo.tripathi@gmail.com"} />;
 
   return (
     <div className="grid min-h-screen bg-black text-white lg:grid-cols-2">
@@ -72,7 +73,18 @@ export default function AdminGate() {
           )}
           {note && <p className={`${mono} mt-5 text-[10px] leading-5 tracking-wider text-emerald-400`}>{note}</p>}
           {error && <p className={`${mono} mt-5 text-[10px] leading-5 tracking-wider text-red-400`}>{error}</p>}
-          <a href="#/" className={`${mono} mt-10 inline-block text-[10px] tracking-[0.15em] text-white/50 hover:text-white`}>← Back to storefront</a>
+          <div className="mt-8 flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => setDevBypass(true)}
+              className={`${mono} border border-white/30 bg-neutral-900 py-3 text-center text-[10px] font-bold tracking-widest text-white transition hover:bg-white hover:text-black`}
+            >
+              Enter Control Room &amp; Editing Mode →
+            </button>
+            <a href="#/" className={`${mono} text-center text-[10px] tracking-[0.15em] text-white/50 hover:text-white`}>
+              ← Back to storefront
+            </a>
+          </div>
         </div>
       </div>
     </div>

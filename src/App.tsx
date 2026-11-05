@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import OnionLogo from "./components/OnionLogo";
+import HeroCards from "./components/HeroCards";
 import Cooking from "./components/Cooking";
 import AdminGate from "./AdminGate";
 import { Lookbook, TrackOrder, Shipping, Returns, SizeMatrix } from "./Pages";
@@ -101,11 +102,56 @@ function Hero() {
   const hero1 = storefront.hero1;
   const hero2 = storefront.hero2;
 
-  const p1 = products.find((x) => x.name.toUpperCase() === hero1.productName.toUpperCase()) || products.find((x) => x.name.toLowerCase().includes("guardian"));
-  const p2 = products.find((x) => x.name.toUpperCase() === hero2.productName.toUpperCase()) || products.find((x) => x.name.toLowerCase().includes("discipline"));
+  const p1 =
+    products.find((x) => x.name.toUpperCase() === hero1.productName.toUpperCase()) ||
+    products.find((x) => x.name.toLowerCase().includes("guardian")) ||
+    products[35] ||
+    products[0];
+  const p2 =
+    products.find((x) => x.name.toUpperCase() === hero2.productName.toUpperCase()) ||
+    products.find((x) => x.name.toLowerCase().includes("discipline")) ||
+    products[13] ||
+    products[1];
 
   const link1 = p1 ? href(p1) : go(`/product/${slug({ name: hero1.productName })}`);
   const link2 = p2 ? href(p2) : go(`/product/${slug({ name: hero2.productName })}`);
+
+  const heroItems = [
+    p1 && {
+      card: {
+        kicker: hero1.subtitle || hero1.heading || "Series 004 // Hero spec",
+        badge: hero1.sticker || hero1.badge || "Staff pick",
+        img: hero1.customImg || hero1.img,
+      },
+      product: {
+        id: p1.id,
+        name: p1.name,
+        price: p1.price,
+        img: p1.img,
+        stock: stockLabel(p1),
+      },
+      href: link1,
+    },
+    p2 && {
+      card: {
+        kicker: hero2.subtitle || hero2.heading || "Series 004 // Hero spec",
+        badge: hero2.sticker || hero2.badge || "Hot right now",
+        img: hero2.customImg || hero2.img,
+      },
+      product: {
+        id: p2.id,
+        name: p2.name,
+        price: p2.price,
+        img: p2.img,
+        stock: stockLabel(p2),
+      },
+      href: link2,
+    },
+  ].filter(Boolean) as {
+    card: { kicker: string; badge: string; img?: string };
+    product: { id: string; name: string; price: number; img: string; stock?: string };
+    href: string;
+  }[];
 
   return (
     <section className="relative overflow-hidden border-b border-black/10 bg-gradient-to-b from-neutral-100/70 via-white to-white px-6 pb-12 pt-[130px] md:pt-[130px]">
@@ -132,97 +178,7 @@ function Hero() {
           <p className={`${mono} mt-6 text-[10px] tracking-[0.15em] text-neutral-500`}>Batch: CHN-DROP-04 • Limit: 150 pcs / design</p>
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-2 lg:col-span-8">
-          {/* Hero Card 1: The Guardian */}
-          <article className="group relative min-h-[480px] overflow-hidden border-2 border-black/15 bg-[#251e19] shadow-2xl transition duration-500 hover:border-black lg:h-[620px]">
-            <a href={link1} className="relative flex h-full flex-col justify-between p-6 focus:outline-none">
-              <img
-                src={imgSrc(hero1.img)}
-                alt={hero1.title}
-                className="absolute inset-0 size-full object-cover object-[78%_38%] transition-transform duration-700 ease-out group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-transparent transition-opacity duration-300 group-hover:from-black" />
-
-              {/* Top Row Badges */}
-              <div className="relative z-10 flex items-center justify-between gap-2">
-                <span className={`${mono} border border-black/10 bg-white/95 px-3 py-1.5 text-[9px] font-bold tracking-[0.1em] text-black shadow-sm`}>
-                  {hero1.tag}
-                </span>
-                <span className={`${mono} flex items-center gap-1.5 bg-black px-3 py-1.5 text-[9px] font-bold tracking-[0.12em] text-white shadow-sm transition group-hover:bg-red-600`}>
-                  <span>VIEW PIECE</span>
-                  <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
-                </span>
-              </div>
-
-              {/* Bottom Content */}
-              <div className="relative z-10 flex items-end justify-between gap-4 text-white">
-                <div>
-                  <p className={`${mono} mb-2 text-[10px] tracking-[0.2em] text-amber-300`}>
-                    {hero1.subtitle || "Series 004 // Heritage Mask Spec"}
-                  </p>
-                  <h2 className={`${disp} text-4xl leading-none transition-transform duration-300 group-hover:-translate-y-1 md:text-5xl`}>
-                    {hero1.title}
-                  </h2>
-                  <p className={`${mono} mt-2 text-sm font-bold text-white`}>
-                    {inr(hero1.price || p1?.price || 1499)}
-                  </p>
-                </div>
-                <span className="grid size-16 shrink-0 place-items-center rounded-full border border-white/60 bg-black/50 text-center font-display text-[10px] leading-tight text-white backdrop-blur transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110">
-                  {hero1.badge.replace(" ", "\n")}
-                </span>
-              </div>
-            </a>
-          </article>
-
-          {/* Hero Card 2: The Discipline */}
-          <article className="group relative min-h-[480px] overflow-hidden border-2 border-black/15 bg-[#171717] shadow-2xl transition duration-500 hover:border-black lg:h-[620px]">
-            <a href={link2} className="relative flex h-full flex-col justify-between p-6 focus:outline-none">
-              <img
-                src={imgSrc(hero2.img)}
-                alt={hero2.title}
-                className="absolute inset-0 size-full object-cover object-[78%_38%] transition-transform duration-700 ease-out group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-transparent transition-opacity duration-300 group-hover:from-black" />
-
-              {/* Top Row Badges */}
-              <div className="relative z-10 flex items-center justify-between gap-2">
-                <span className={`${mono} bg-black px-3 py-1.5 text-[9px] font-bold tracking-[0.1em] text-white`}>
-                  {hero2.tag}
-                </span>
-                <span className={`${mono} flex items-center gap-1.5 bg-white/95 px-3 py-1.5 text-[9px] font-bold tracking-[0.12em] text-black shadow-sm transition group-hover:bg-black group-hover:text-white`}>
-                  <span>VIEW PIECE</span>
-                  <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
-                </span>
-              </div>
-
-              {hero2.badgeNote && (
-                <div className="absolute right-5 top-14 z-10 flex size-20 items-center justify-center rounded-full bg-white/95 p-2 text-center shadow-lg transition-transform duration-300 group-hover:scale-105">
-                  <span className={`${mono} whitespace-pre-line text-[7px] font-bold leading-tight tracking-wider text-black`}>
-                    {hero2.badgeNote}
-                  </span>
-                </div>
-              )}
-
-              {/* Bottom Content */}
-              <div className="relative z-10 flex items-end justify-between gap-4 text-white">
-                <div>
-                  <p className={`${mono} mb-2 text-[10px] tracking-[0.2em] text-white/70`}>
-                    {hero2.subtitle || "Mindset Over Everything"}
-                  </p>
-                  <h3 className={`${disp} text-3xl leading-none transition-transform duration-300 group-hover:-translate-y-1 sm:text-4xl`}>
-                    {hero2.title}
-                  </h3>
-                  <p className={`${mono} mt-2 text-sm font-bold text-white`}>
-                    {inr(hero2.price || p2?.price || 1499)}
-                  </p>
-                </div>
-                <span className="grid size-16 shrink-0 place-items-center rounded-full border border-white/60 bg-black/50 text-center font-display text-[10px] leading-tight text-white backdrop-blur transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110">
-                  {hero2.badge.replace(" ", "\n")}
-                </span>
-              </div>
-            </a>
-          </article>
-        </div>
+        <HeroCards items={heroItems} />
       </div>
     </section>
   );

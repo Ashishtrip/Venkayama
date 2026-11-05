@@ -53,12 +53,15 @@ export type DB = {
 export type HeroCard = {
   productId?: string;
   productName: string;
-  tag: string;
-  title: string;
+  tag?: string;
+  title?: string;
   subtitle?: string;
+  heading?: string;
+  sticker?: string;
   price?: number;
   badge: string;
   img: string;
+  customImg?: string;
   badgeNote?: string;
 };
 
@@ -80,6 +83,7 @@ export type DropThumb = {
 export type AboutPoster = {
   img: string;
   tag: string;
+  heading?: string;
   quote: string;
   subtext: string;
 };
@@ -97,9 +101,11 @@ export const DEFAULT_STOREFRONT: StorefrontConfig = {
     productName: "THE GUARDIAN",
     tag: "HERO ARCHIVE // DROP 04",
     title: "The Guardian",
-    subtitle: "Series 004 // Heritage Mask Spec",
+    subtitle: "Series 004 // Hero spec",
+    heading: "Series 004 // Hero spec",
+    sticker: "Staff pick",
     price: 1499,
-    badge: "FAST DISPATCH",
+    badge: "Staff pick",
     img: "/products/36.jpg",
     badgeNote: "ORIGINAL ARCHIVE",
   },
@@ -107,9 +113,11 @@ export const DEFAULT_STOREFRONT: StorefrontConfig = {
     productName: "DISCIPLINE",
     tag: "DARK VINTAGE WASH",
     title: "The Discipline",
-    subtitle: "Mindset Over Everything",
+    subtitle: "Series 004 // Hero spec",
+    heading: "Series 004 // Hero spec",
+    sticker: "Hot right now",
     price: 1499,
-    badge: "LIMITED DROP",
+    badge: "Hot right now",
     img: "/products/14.jpg",
     badgeNote: "100% Sri Lankan cotton\nMade in India",
   },
