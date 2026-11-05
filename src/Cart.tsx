@@ -2,6 +2,7 @@ import OnionLogo from "./components/OnionLogo";
 import { actions, checkPromo, getDB, imgSrc, isMono, promoAmount, quoteOrder, useDB, type PromoInfo } from "./store";
 import { projectId, publicAnonKey } from "../utils/supabase/info";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useSession } from "./Auth";
 
 const mono = "font-mono uppercase";
 const disp = "font-display uppercase";
@@ -35,6 +36,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [applied, setApplied] = useState("");
   const [promo, setPromo] = useState<PromoInfo | null>(null);
   const [codeMsg, setCodeMsg] = useState("");
+  const session = useSession();
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   const subtotal = lines.reduce((a, l) => a + l.price * l.qty, 0);
   const count = lines.reduce((a, l) => a + l.qty, 0);
@@ -49,21 +52,29 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       count,
       open: () => { setView("cart"); setOpen(true); },
       add: (l, buyNow) => {
+        if (!session) {
+          setShowLoginPrompt(true);
+          return;
+        }
         const key = `${l.name}|${l.size}`;
         setLines((ls) => (ls.some((x) => x.key === key) ? ls.map((x) => (x.key === key ? { ...x, qty: x.qty + 1 } : x)) : [...ls, { ...l, key, qty: 1 }]));
         setView(buyNow ? "checkout" : "cart");
         setOpen(true);
       },
     }),
-    [lines, count]
+    [lines, count, session]
   );
 
   useEffect(() => {
-    document.body.style.overflow = isOpen ? "hidden" : "";
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    if (session) setShowLoginPrompt(false);
+  }, [session]);
+
+  useEffect(() => {
+    document.body.style.overflow = isOpen || showLoginPrompt ? "hidden" : "";
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") { setOpen(false); setShowLoginPrompt(false); } };
     window.addEventListener("keydown", esc);
     return () => window.removeEventListener("keydown", esc);
-  }, [isOpen]);
+  }, [isOpen, showLoginPrompt]);
 
   const [checkingCode, setCheckingCode] = useState(false);
 
@@ -429,6 +440,24 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               <button onClick={() => setStage(null)} className={`${mono} mt-8 bg-black px-8 py-4 text-[11px] font-bold tracking-[0.15em] text-white transition hover:bg-neutral-800`}>Keep shopping</button>
             </div>
           )}
+        </div>
+      )}
+      {showLoginPrompt && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 px-6" onClick={() => setShowLoginPrompt(false)}>
+          <div className="w-full max-w-sm bg-white p-8 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-center">
+              <OnionLogo className="h-16" />
+            </div>
+            <h2 className={`${disp} mt-5 text-center text-3xl leading-none`}>Login required</h2>
+            <p className="mt-3 text-center text-sm text-neutral-600">
+              You need to log in or create an account before you can add items to your bag and place orders.
+            </p>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <a href="#/login" onClick={() => setShowLoginPrompt(false)} className={`${mono} bg-black py-3.5 text-center text-[11px] font-bold tracking-[0.15em] text-white transition hover:bg-neutral-800`}>Log in</a>
+              <a href="#/signup" onClick={() => setShowLoginPrompt(false)} className={`${mono} border border-black py-3.5 text-center text-[11px] font-bold tracking-[0.15em] transition hover:bg-neutral-200`}>Sign up</a>
+            </div>
+            <button onClick={() => setShowLoginPrompt(false)} className={`${mono} mt-4 w-full py-2 text-[10px] tracking-wider text-neutral-500 hover:text-black`}>Continue browsing</button>
+          </div>
         </div>
       )}
     </CartCtx.Provider>
