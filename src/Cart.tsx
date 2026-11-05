@@ -65,6 +65,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", esc);
   }, [isOpen]);
 
+  const [checkingCode, setCheckingCode] = useState(false);
+
   const setQty = (key: string, d: number) =>
     setLines((ls) =>
       ls.flatMap((l) => {
@@ -74,14 +76,39 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return qty <= 0 ? [] : [{ ...l, qty }];
       })
     );
+
   const applyCode = async () => {
+    const clean = code.trim().toUpperCase();
+    if (!clean) {
+      setCodeMsg("Enter a promo code");
+      return;
+    }
+    setCheckingCode(true);
     try {
-      const res = await checkPromo(code);
-      if (res.error || !res.code) { setCodeMsg(res.error ?? "Code not recognised"); setApplied(""); setPromo(null); return; }
+      const res = await checkPromo(clean);
+      if (res.error || !res.code) {
+        setCodeMsg(res.error ?? "Code not recognised");
+        setApplied("");
+        setPromo(null);
+        return;
+      }
       const info = res as PromoInfo;
-      setApplied(info.code); setPromo(info);
+      setApplied(info.code);
+      setPromo(info);
+      setCode(info.code);
       setCodeMsg(`${info.code} applied, saving ${inr(promoAmount(info, subtotal))}`);
-    } catch { setCodeMsg("Could not check the code. Try again."); }
+    } catch {
+      setCodeMsg("Could not check the code. Try again.");
+    } finally {
+      setCheckingCode(false);
+    }
+  };
+
+  const removePromo = () => {
+    setApplied("");
+    setPromo(null);
+    setCode("");
+    setCodeMsg("");
   };
 
   const [paying, setPaying] = useState(false);
@@ -227,10 +254,42 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               {lines.length > 0 && (
                 <footer className="space-y-3 border-t-2 border-black p-6">
                   <div className={`${mono} flex justify-between text-[11px] font-bold tracking-wider`}><span>Subtotal</span><span>{inr(subtotal)}</span></div>
-                  <div className="flex gap-2">
-                    <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="PROMO CODE" aria-label="Promo code" className={`${mono} min-w-0 flex-1 border border-black px-3 py-2 text-[10px] tracking-widest outline-none`} />
-                    <button type="button" onClick={applyCode} className={`${mono} border border-black px-4 text-[10px] font-bold tracking-wider hover:bg-black hover:text-white`}>Apply</button>
-                  </div>
+                  {applied ? (
+                    <div className="flex items-center justify-between border border-black bg-neutral-50 px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`${mono} text-[10px] font-bold tracking-wider text-emerald-700`}>✓ {applied}</span>
+                        {disc.amount > 0 && <span className={`${mono} text-[10px] text-neutral-500`}>−{inr(disc.amount)}</span>}
+                      </div>
+                      <button type="button" onClick={removePromo} className={`${mono} text-[10px] font-bold tracking-wider text-neutral-500 hover:text-black underline`}>Remove</button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        value={code}
+                        onChange={(e) => {
+                          setCode(e.target.value.toUpperCase());
+                          if (codeMsg) setCodeMsg("");
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            applyCode();
+                          }
+                        }}
+                        placeholder="PROMO CODE"
+                        aria-label="Promo code"
+                        className={`${mono} min-w-0 flex-1 border border-black px-3 py-2 text-[10px] tracking-widest outline-none`}
+                      />
+                      <button
+                        type="button"
+                        disabled={checkingCode}
+                        onClick={applyCode}
+                        className={`${mono} border border-black px-4 text-[10px] font-bold tracking-wider hover:bg-black hover:text-white disabled:opacity-50`}
+                      >
+                        {checkingCode ? "Checking…" : "Apply"}
+                      </button>
+                    </div>
+                  )}
                   {codeMsg && <p className={`${mono} text-[10px] tracking-wider ${applied ? "text-emerald-700" : "text-red-700"}`}>{codeMsg}</p>}
                   {disc.amount > 0 && <div className={`${mono} flex justify-between text-[10px] tracking-wider text-emerald-700`}><span>Discount</span><span>−{inr(disc.amount)}</span></div>}
                   <div className={`${mono} flex justify-between text-[10px] tracking-wider text-neutral-500`}><span>Shipping</span><span>{shipping ? inr(shipping) : "Free"}</span></div>
@@ -256,11 +315,88 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                     ))}
                   </div>
                 </fieldset>
+
+                {/* Promo Code claim in Checkout */}
                 <div className="border-t border-black/10 pt-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className={`${mono} text-[10px] font-bold tracking-wider`}>Promo code</span>
+                    {applied && (
+                      <button
+                        type="button"
+                        onClick={removePromo}
+                        className={`${mono} text-[9px] font-bold tracking-wider text-neutral-500 hover:text-black underline`}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  {applied ? (
+                    <div className="flex items-center justify-between border-2 border-emerald-700 bg-emerald-50/50 p-3">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-emerald-700">✓</span>
+                          <span className={`${mono} text-[11px] font-bold tracking-wider text-emerald-800`}>{applied}</span>
+                        </div>
+                        <p className={`${mono} mt-0.5 text-[9px] tracking-wide text-emerald-700`}>
+                          {promo?.type === "percent" ? `${promo.value}% OFF` : `${inr(promo?.value ?? 0)} OFF`} • Saving {inr(disc.amount)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={removePromo}
+                        aria-label="Remove promo code"
+                        className={`${mono} border border-emerald-700 px-2.5 py-1 text-[10px] font-bold tracking-wider text-emerald-800 transition hover:bg-emerald-700 hover:text-white`}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex gap-2">
+                        <input
+                          value={code}
+                          onChange={(e) => {
+                            setCode(e.target.value.toUpperCase());
+                            if (codeMsg) setCodeMsg("");
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              applyCode();
+                            }
+                          }}
+                          placeholder="ENTER PROMO CODE"
+                          aria-label="Claim promo code"
+                          className={`${mono} min-w-0 flex-1 border border-black px-3 py-2.5 text-[11px] tracking-widest outline-none focus:bg-neutral-50`}
+                        />
+                        <button
+                          type="button"
+                          disabled={checkingCode || !code.trim()}
+                          onClick={applyCode}
+                          className={`${mono} border border-black bg-black px-4 py-2.5 text-[10px] font-bold tracking-wider text-white transition hover:bg-neutral-800 disabled:opacity-40`}
+                        >
+                          {checkingCode ? "Checking…" : "Claim"}
+                        </button>
+                      </div>
+                      {codeMsg && (
+                        <p className={`${mono} mt-1.5 text-[10px] tracking-wider ${applied ? "text-emerald-700" : "text-red-700"}`}>
+                          {codeMsg}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Order breakdown */}
+                <div className="space-y-2 border-t border-black/10 pt-4">
+                  <p className={`${mono} mb-2 text-[10px] font-bold tracking-wider text-neutral-500`}>Order summary</p>
                   {lines.map((l) => (
                     <p key={l.key} className="flex justify-between text-[13px]"><span className="truncate pr-3">{l.name} ({l.size}) ×{l.qty}</span><span className={`${mono} font-bold`}>{inr(l.price * l.qty)}</span></p>
                   ))}
-                  {disc.amount > 0 && <p className="flex justify-between text-[13px] text-emerald-700"><span>Promo {applied}</span><span className={`${mono} font-bold`}>−{inr(disc.amount)}</span></p>}
+                  <div className={`${mono} flex justify-between pt-1 text-[11px] text-neutral-600`}><span>Subtotal</span><span>{inr(subtotal)}</span></div>
+                  {disc.amount > 0 && <p className={`${mono} flex justify-between text-[11px] font-bold text-emerald-700`}><span>Promo ({applied})</span><span>−{inr(disc.amount)}</span></p>}
+                  <div className={`${mono} flex justify-between text-[11px] text-neutral-600`}><span>Shipping</span><span>{shipping ? inr(shipping) : "Free"}</span></div>
+                  <div className={`${mono} flex justify-between border-t border-black/10 pt-2 text-[12px] font-bold`}><span>Total</span><span>{inr(total)}</span></div>
                 </div>
               </div>
               <footer className="border-t-2 border-black p-6">
@@ -298,3 +434,5 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     </CartCtx.Provider>
   );
 }
+
+export default CartProvider;
