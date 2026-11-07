@@ -80,69 +80,11 @@ const DEFAULT_PROFILE: UserProfile = {
   fullName: "",
   email: "",
   phone: "",
-  addresses: [
-    {
-      id: "addr_default_1",
-      label: "Studio / Primary",
-      name: "Ashish Tripathi",
-      phone: "9876543210",
-      address: "14/B, Khader Nawaz Khan Road, Nungambakkam",
-      city: "Chennai",
-      state: "Tamil Nadu",
-      pin: "600006",
-      isDefault: true,
-    },
-  ],
-  paymentMethods: [
-    {
-      id: "pm_upi_1",
-      type: "upi",
-      vpa: "ashish@okhdfcbank",
-      app: "Google Pay",
-      isDefault: true,
-    },
-    {
-      id: "pm_card_1",
-      type: "card",
-      brand: "Visa",
-      last4: "4242",
-      holderName: "ASHISH TRIPATHI",
-      expMonth: "08",
-      expYear: "28",
-      isDefault: false,
-    },
-  ],
-  orders: [
-    {
-      id: "VNK-1004",
-      track: "7A9F32BC10",
-      createdAt: Date.now() - 2 * 864e5,
-      customer: "Ashish Tripathi",
-      phone: "9876543210",
-      city: "Chennai",
-      address: "14/B, Khader Nawaz Khan Road, Nungambakkam",
-      pay: "UPI",
-      status: "Printing",
-      amount: 1499,
-      items: [{ name: "THE GUARDIAN", size: "L", qty: 1, price: 1499 }],
-    },
-    {
-      id: "VNK-1001",
-      track: "4C8D21EA90",
-      createdAt: Date.now() - 14 * 864e5,
-      customer: "Ashish Tripathi",
-      phone: "9876543210",
-      city: "Chennai",
-      address: "14/B, Khader Nawaz Khan Road, Nungambakkam",
-      pay: "Card",
-      status: "Delivered",
-      amount: 1499,
-      items: [{ name: "DISCIPLINE", size: "XL", qty: 1, price: 1499 }],
-      deliveredAt: Date.now() - 10 * 864e5,
-    },
-  ],
-  wishlist: ["GEN-036", "GEN-014", "GEN-016"],
-  createdDate: Date.now() - 30 * 864e5,
+  addresses: [],
+  paymentMethods: [],
+  orders: [],
+  wishlist: [],
+  createdDate: Date.now(),
 };
 
 export function loadProfile(email?: string, userId?: string): UserProfile {
@@ -152,9 +94,37 @@ export function loadProfile(email?: string, userId?: string): UserProfile {
     const raw = localStorage.getItem(key);
     if (raw) {
       const parsed = JSON.parse(raw);
+      // Strip any legacy placeholder/dummy test records previously stored in browser
+      const addresses = (parsed.addresses || []).filter(
+        (a: UserAddress) => a.id !== "addr_default_1"
+      );
+      const paymentMethods = (parsed.paymentMethods || []).filter(
+        (p: SavedPaymentMethod) => p.id !== "pm_upi_1" && p.id !== "pm_card_1"
+      );
+      const orders = (parsed.orders || []).filter(
+        (o: UserOrderRecord) => o.id !== "VNK-1004" && o.id !== "VNK-1001"
+      );
+      let wishlist = parsed.wishlist || [];
+      if (
+        Array.isArray(wishlist) &&
+        wishlist.length === 3 &&
+        wishlist.includes("GEN-036") &&
+        wishlist.includes("GEN-014") &&
+        wishlist.includes("GEN-016") &&
+        !parsed.fullName
+      ) {
+        wishlist = [];
+      }
+
       return {
         ...DEFAULT_PROFILE,
         ...parsed,
+        fullName: parsed.fullName === "Ashish Tripathi" ? "" : (parsed.fullName || ""),
+        phone: parsed.phone === "9876543210" ? "" : (parsed.phone || ""),
+        addresses,
+        paymentMethods,
+        orders,
+        wishlist,
         email: email || parsed.email || "",
       };
     }

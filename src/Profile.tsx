@@ -150,8 +150,8 @@ export default function Profile() {
     brand: "Visa" as "Visa" | "Mastercard" | "RuPay" | "Amex",
     last4: "",
     holderName: "",
-    expMonth: "12",
-    expYear: "28",
+    expMonth: "01",
+    expYear: "26",
     isDefault: false,
   });
   const [upiForm, setUpiForm] = useState({
@@ -352,7 +352,7 @@ export default function Profile() {
                     required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. Ashish Tripathi"
+                    placeholder="Full name"
                     className="mt-1 w-full border border-black bg-white px-4 py-3 text-sm font-medium outline-none focus:bg-neutral-50"
                   />
                 </label>
@@ -364,7 +364,7 @@ export default function Profile() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="e.g. ashish@venkayam.in"
+                    placeholder="name@domain.com"
                     className="mt-1 w-full border border-black bg-white px-4 py-3 text-sm font-medium outline-none focus:bg-neutral-50"
                   />
                   <span className={`${mono} mt-1 block text-[9px] text-neutral-500`}>
@@ -380,7 +380,7 @@ export default function Profile() {
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      placeholder="9876543210"
+                      placeholder="10-digit mobile number"
                       maxLength={10}
                       className="min-w-0 flex-1 px-4 py-3 text-sm font-medium outline-none"
                     />
@@ -1114,7 +1114,7 @@ export default function Profile() {
                 <span className={`${mono} text-[9px] font-bold`}>UPI VPA handle</span>
                 <input
                   required
-                  placeholder="e.g. yourname@okhdfcbank"
+                  placeholder="username@bank"
                   value={upiForm.vpa}
                   onChange={(e) => setUpiForm({ ...upiForm, vpa: e.target.value })}
                   className="mt-1 w-full border border-black p-2 text-xs"
@@ -1192,7 +1192,7 @@ export default function Profile() {
                 <span className={`${mono} text-[9px] font-bold`}>Name on card</span>
                 <input
                   required
-                  placeholder="e.g. ASHISH TRIPATHI"
+                  placeholder="Full name as printed on card"
                   value={cardForm.holderName}
                   onChange={(e) => setCardForm({ ...cardForm, holderName: e.target.value })}
                   className="mt-1 w-full border border-black p-2 text-xs uppercase"
@@ -1224,7 +1224,7 @@ export default function Profile() {
                   <input
                     required
                     maxLength={4}
-                    placeholder="4242"
+                    placeholder="4 digits"
                     value={cardForm.last4}
                     onChange={(e) => setCardForm({ ...cardForm, last4: e.target.value.replace(/\D/g, "") })}
                     className="mt-1 w-full border border-black p-2 text-xs font-mono"
