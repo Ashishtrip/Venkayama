@@ -842,6 +842,9 @@ export default function Admin({ onSignOut, userEmail }: { onSignOut?: () => void
           <Panel title="Customer book" kicker={`${customers.length} customers, built from orders`} right={
             <input value={cq} onChange={(e) => setCq(e.target.value)} placeholder="SEARCH NAME, PHONE" aria-label="Search customers" className={`${mono} w-48 border border-black px-3 py-2 text-[10px] tracking-widest outline-none placeholder:text-neutral-400 md:w-64`} />
           }>
+            <div className={`${mono} mb-4 flex items-center justify-between border border-black/20 bg-neutral-100 px-3 py-2 text-[9px] text-neutral-600`}>
+              <span>🔒 <b>DPDP &amp; PCI-DSS COMPLIANT</b>: Private customer payment tokens and wishlists are securely isolated and omitted from administrative view. Only fulfillment and order history data is shown.</span>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-left text-sm">
                 <thead><tr className={`${mono} border-b border-black text-[9px] tracking-[0.15em] text-neutral-500`}>{["Customer", "Phone", "City", "Orders", "Lifetime spend", "Last order"].map((h) => <th key={h} className="px-2 py-2 font-bold">{h}</th>)}</tr></thead>

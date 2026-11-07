@@ -8,6 +8,8 @@ import { isMono, STUDIO, useDB, imgSrc, stockLabel, offLabel, sortSizes, DEFAULT
 import AuthPage, { useSession, displayName } from "./Auth";
 import { getSupabase } from "./lib/supabase";
 import { CartProvider, useCart } from "./Cart";
+import Profile from "./Profile";
+import { useUserProfile } from "./lib/userProfile";
 
 const A = (f: string) => `/assets/${f}`;
 const mono = "font-mono uppercase";
@@ -56,6 +58,7 @@ function Arrow({ invert = false }: { invert?: boolean }) {
 function Header({ path }: { path: string }) {
   const session = useSession();
   const { count, open } = useCart();
+  const { wishlistCount } = useUserProfile();
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-black/10 bg-white/95 backdrop-blur">
       <div className={`${mono} flex h-7 items-center justify-center bg-black px-4 text-[10px] tracking-[0.12em] text-white`}>
@@ -75,22 +78,39 @@ function Header({ path }: { path: string }) {
             </a>
           ))}
         </nav>
-        <div className="flex items-center gap-3">
-        {session ? (
-          <span className={`${mono} hidden items-center gap-3 text-[10px] font-bold tracking-[0.12em] sm:flex`}>
-            <span className="max-w-28 truncate">Hi, {displayName(session)}</span>
-            <button onClick={() => getSupabase().auth.signOut()} className="underline underline-offset-4">Log out</button>
-          </span>
-        ) : (
-          <a href={go("/login")} className={`${mono} text-[11px] font-bold tracking-[0.12em] underline-offset-4 hover:underline`}>Log in</a>
-        )}
-        <button onClick={open} className={`${mono} border border-black px-3 py-1.5 text-[11px] font-bold tracking-widest transition hover:bg-black hover:text-white`}>
-          Bag [{String(count).padStart(2, "0")}]
-        </button>
+        <div className="flex items-center gap-2.5">
+          <a
+            href={go("/profile")}
+            title="My Profile & Wishlist"
+            className={`${mono} flex items-center gap-1.5 border border-black px-2.5 py-1.5 text-[10px] font-bold tracking-wider transition ${
+              path.startsWith("/profile") ? "bg-black text-white" : "hover:bg-neutral-100"
+            }`}
+          >
+            <span>Account</span>
+            {wishlistCount > 0 && (
+              <span className="bg-black text-white px-1 py-0.2 text-[9px] font-mono">
+                ★{wishlistCount}
+              </span>
+            )}
+          </a>
+          {session ? (
+            <span className={`${mono} hidden items-center gap-2 text-[10px] font-bold tracking-[0.12em] sm:flex`}>
+              <a href={go("/profile")} className="max-w-28 truncate hover:underline">Hi, {displayName(session)}</a>
+              <button onClick={() => getSupabase().auth.signOut()} className="underline underline-offset-4">Log out</button>
+            </span>
+          ) : (
+            <a href={go("/login")} className={`${mono} hidden sm:block text-[11px] font-bold tracking-[0.12em] underline-offset-4 hover:underline`}>Log in</a>
+          )}
+          <button onClick={open} className={`${mono} border border-black px-3 py-1.5 text-[11px] font-bold tracking-widest transition hover:bg-black hover:text-white`}>
+            Bag [{String(count).padStart(2, "0")}]
+          </button>
         </div>
       </div>
       <nav className={`${mono} flex justify-around border-t border-black/10 py-2 text-[10px] font-bold tracking-[0.12em] md:hidden`}>
         {nav.map(([n, to]) => <a key={n} href={go(to)} className={path === to ? "underline underline-offset-4" : ""}>{n}</a>)}
+        <a href={go("/profile")} className={path.startsWith("/profile") ? "underline underline-offset-4 font-bold" : ""}>
+          Account{wishlistCount > 0 ? ` [★${wishlistCount}]` : ""}
+        </a>
       </nav>
     </header>
   );
@@ -240,6 +260,7 @@ const sizesFor = (p: Product): [string, boolean][] =>
 
 function ProductCard({ p }: { p: Product }) {
   const { add } = useCart();
+  const { isWishlisted, toggleWishlist } = useUserProfile();
   const sizes = sizesFor(p);
   const [size, setSize] = useState(sizes.length === 1 && sizes[0][1] ? sizes[0][0] : "");
   const [warn, setWarn] = useState(false);
@@ -247,15 +268,28 @@ function ProductCard({ p }: { p: Product }) {
     if (!size) { setWarn(true); return; }
     add({ name: p.name, img: p.img, size, price: p.price }, buyNow);
   };
+  const wish = isWishlisted(p.id) || isWishlisted(p.sku) || isWishlisted(p.name);
   return (
     <article className="group flex flex-col border border-black/10 bg-white">
-      <a href={href(p)} aria-label={`View ${p.name}`} className={`relative block aspect-[4/5] overflow-hidden ${isShot(p) ? "bg-[#f1e0d4]" : "bg-neutral-200"}`}>
-        <img src={imgSrc(p.img)} alt={p.name} className={`absolute inset-0 size-full object-cover transition duration-700 group-hover:scale-105 ${isShot(p) ? "origin-center scale-[1.55] object-[18%_50%] group-hover:scale-[1.65]" : isMono(p.img) ? "grayscale" : ""}`} />
-        {p.emblem && <img src={A(p.emblem)} alt="" className="absolute left-1/2 top-[48%] w-1/4 -translate-x-1/2 -translate-y-1/2 mix-blend-multiply" />}
+      <div className={`relative block aspect-[4/5] overflow-hidden ${isShot(p) ? "bg-[#f1e0d4]" : "bg-neutral-200"}`}>
+        <a href={href(p)} aria-label={`View ${p.name}`} className="absolute inset-0 size-full">
+          <img src={imgSrc(p.img)} alt={p.name} className={`size-full object-cover transition duration-700 group-hover:scale-105 ${isShot(p) ? "origin-center scale-[1.55] object-[18%_50%] group-hover:scale-[1.65]" : isMono(p.img) ? "grayscale" : ""}`} />
+          {p.emblem && <img src={A(p.emblem)} alt="" className="absolute left-1/2 top-[48%] w-1/4 -translate-x-1/2 -translate-y-1/2 mix-blend-multiply" />}
+        </a>
         <span className={`${mono} absolute left-3 top-3 bg-white px-2 py-1 text-[9px] font-bold tracking-[0.1em]`}>{p.tag}</span>
+        <button
+          type="button"
+          aria-label={wish ? `Remove ${p.name} from wishlist` : `Save ${p.name} to wishlist`}
+          onClick={() => toggleWishlist(p.id)}
+          className={`absolute right-3 top-3 z-10 grid size-7 place-items-center border border-black transition ${
+            wish ? "bg-black text-white" : "bg-white text-black hover:bg-black hover:text-white"
+          }`}
+        >
+          <span className="text-xs font-bold leading-none">{wish ? "★" : "☆"}</span>
+        </button>
         <span className={`${mono} absolute bottom-3 left-3 bg-black px-2 py-1 text-[9px] font-bold tracking-[0.1em] text-white`}>{p.badge}</span>
-        <span className={`${mono} absolute bottom-3 right-3 bg-white px-2 py-1 text-[9px] font-bold tracking-[0.1em] opacity-0 transition group-hover:opacity-100`}>View →</span>
-      </a>
+        <a href={href(p)} className={`${mono} absolute bottom-3 right-3 bg-white px-2 py-1 text-[9px] font-bold tracking-[0.1em] opacity-0 transition group-hover:opacity-100`}>View →</a>
+      </div>
       <div className="flex flex-1 flex-col p-5">
         <div className={`${mono} mb-2 flex justify-between text-[9px] tracking-[0.12em] text-neutral-500`}><span>{p.badge}</span><span className="font-bold text-black">{stockLabel(p)}</span></div>
         <h3 className="text-[15px] font-extrabold uppercase leading-snug"><a href={href(p)} className="hover:underline">{p.name}</a></h3>
@@ -295,6 +329,7 @@ function ProductPage({ id }: { id: string }) {
   const products = useProducts();
   const p = products.find((x) => slug(x) === id);
   const { add } = useCart();
+  const { isWishlisted, toggleWishlist } = useUserProfile();
   const [size, setSize] = useState("");
   const [warn, setWarn] = useState(false);
   const [qty, setQty] = useState(1);
@@ -309,6 +344,7 @@ function ProductPage({ id }: { id: string }) {
       </div></section>
     );
   }
+  const wish = isWishlisted(p.id) || isWishlisted(p.sku) || isWishlisted(p.name);
   const shots = [p.img, ...(p.gallery ?? [])];
   const cur = shots[Math.min(shot, shots.length - 1)];
   const d = details[p.cat];
@@ -386,6 +422,13 @@ function ProductPage({ id }: { id: string }) {
                 <button onClick={() => act(false)} className={`${mono} border border-black py-4 text-[11px] font-bold tracking-[0.15em] transition hover:bg-black hover:text-white`}>Add to cart</button>
                 <button onClick={() => act(true)} className={`${mono} bg-black py-4 text-[11px] font-bold tracking-[0.15em] text-white transition hover:bg-neutral-700`}>Buy now</button>
               </div>
+              <button
+                type="button"
+                onClick={() => toggleWishlist(p.id)}
+                className={`${mono} mt-3 flex w-full items-center justify-center gap-2 border border-black/30 py-3 text-[10px] font-bold tracking-[0.15em] transition hover:border-black hover:bg-neutral-100`}
+              >
+                <span>{wish ? "★ Saved in Wishlist" : "☆ Save to Wishlist"}</span>
+              </button>
 
               <div className="mt-10 border-t-2 border-black">
                 {acc.map(([t, body], i) => (
@@ -486,7 +529,7 @@ function Manifesto() {
 function Footer() {
   const cols: [string, string[]][] = [
     ["Navigation", ["Shop all archive|/shop", "Latest drops|/drops", "Lookbook 2026|/lookbook", "Manifesto|/about"]],
-    ["Assistance", ["Track order|/track", "Domestic shipping|/shipping", "Returns & exchanges|/returns", "Size matrix|/sizes"]],
+    ["Assistance", ["My Account & Orders|/profile", "Saved Wishlist|/profile/wishlist", "Track order|/track", "Domestic shipping|/shipping", "Returns & exchanges|/returns", "Size matrix|/sizes"]],
   ];
   return (
     <footer className="bg-black text-white">
@@ -805,7 +848,7 @@ export default function App() {
     <CartProvider>
       <Header path={page === "product" ? "/shop" : path} />
       <main key={path + sub}>
-        {page === "shop" ? <Shop cat={tabs.some(([k]) => k === sub) ? sub : "all"} /> : page === "login" || page === "signup" ? <AuthPage initial={page} /> : page === "lookbook" ? <Lookbook /> : page === "track" ? <TrackOrder /> : page === "shipping" ? <Shipping /> : page === "returns" ? <Returns /> : page === "sizes" ? <SizeMatrix /> : page === "product" ? <ProductPage id={sub} /> : page === "drops" ? <Drops /> : page === "about" ? <About /> : <Home />}
+        {page === "shop" ? <Shop cat={tabs.some(([k]) => k === sub) ? sub : "all"} /> : page === "login" || page === "signup" ? <AuthPage initial={page} /> : page === "profile" || page === "account" ? <Profile /> : page === "lookbook" ? <Lookbook /> : page === "track" ? <TrackOrder /> : page === "shipping" ? <Shipping /> : page === "returns" ? <Returns /> : page === "sizes" ? <SizeMatrix /> : page === "product" ? <ProductPage id={sub} /> : page === "drops" ? <Drops /> : page === "about" ? <About /> : <Home />}
       </main>
       <Footer />
     </CartProvider>

@@ -3,6 +3,7 @@ import { actions, checkPromo, getDB, imgSrc, isMono, promoAmount, quoteOrder, us
 import { projectId, publicAnonKey } from "../utils/supabase/info";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useSession } from "./Auth";
+import { useUserProfile, type UserAddress } from "./lib/userProfile";
 
 const mono = "font-mono uppercase";
 const disp = "font-display uppercase";
@@ -38,6 +39,37 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [codeMsg, setCodeMsg] = useState("");
   const session = useSession();
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const { profile, recordOrder } = useUserProfile();
+
+  const defaultAddr = useMemo(
+    () => profile.addresses.find((a) => a.isDefault) || profile.addresses[0],
+    [profile.addresses]
+  );
+  const [shippingFields, setShippingFields] = useState({
+    name: "",
+    phone: "",
+    address: "",
+    city: "",
+    pin: "",
+  });
+
+  useEffect(() => {
+    if (defaultAddr) {
+      setShippingFields({
+        name: defaultAddr.name || profile.fullName || "",
+        phone: defaultAddr.phone || profile.phone || "",
+        address: defaultAddr.address || "",
+        city: defaultAddr.city || "",
+        pin: defaultAddr.pin || "",
+      });
+    } else {
+      setShippingFields((prev) => ({
+        ...prev,
+        name: prev.name || profile.fullName || "",
+        phone: prev.phone || profile.phone || "",
+      }));
+    }
+  }, [defaultAddr, profile.fullName, profile.phone]);
 
   const subtotal = lines.reduce((a, l) => a + l.price * l.qty, 0);
   const count = lines.reduce((a, l) => a + l.qty, 0);
@@ -126,11 +158,32 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [payErr, setPayErr] = useState("");
 
   const finish = async (f: FormData, paymentId: string) => {
+    const customer = String(f.get("name"));
+    const phone = String(f.get("phone"));
+    const address = String(f.get("address"));
+    const city = String(f.get("city"));
+    const orderItems = lines.map((l) => ({ name: l.name, size: l.size, qty: l.qty, price: l.price }));
+
     const order = await actions.placeOrder({
-      customer: String(f.get("name")), phone: String(f.get("phone")), address: String(f.get("address")),
-      city: String(f.get("city")), pay, amount: total, promo: applied || undefined, paymentId,
-      items: lines.map((l) => ({ name: l.name, size: l.size, qty: l.qty, price: l.price })),
+      customer, phone, address, city, pay, amount: total, promo: applied || undefined, paymentId,
+      items: orderItems,
     });
+
+    // Record into user profile order history
+    recordOrder({
+      id: order.id,
+      track: order.track ?? "",
+      createdAt: Date.now(),
+      customer,
+      phone,
+      city,
+      address,
+      pay,
+      status: "Placed",
+      amount: total,
+      items: orderItems,
+    });
+
     setOrderId(order.id); setTrackCode(order.track ?? "");
     setPaid(total);
     setApplied(""); setPromo(null); setCode(""); setCodeMsg("");
@@ -312,10 +365,57 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             <form onSubmit={place} className="flex flex-1 flex-col overflow-y-auto">
               <div className="flex-1 space-y-4 p-6">
                 <button type="button" onClick={() => setView("cart")} className={`${mono} text-[10px] font-bold tracking-wider underline`}>← Back to bag</button>
-                {[["name", "Full name", "text"], ["phone", "Phone", "tel"], ["address", "Delivery address", "text"], ["city", "City", "text"], ["pin", "PIN code", "text"]].map(([n, l, t]) => (
-                  <label key={n} className="block">
-                    <span className={`${mono} text-[10px] font-bold tracking-wider`}>{l}</span>
-                    <input required name={n} type={t} className="mt-1 w-full border border-black px-3 py-3 text-sm outline-none focus:bg-neutral-100" />
+
+                {profile.addresses.length > 0 && (
+                  <div className="border border-black bg-neutral-50 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className={`${mono} text-[9px] font-bold tracking-wider text-neutral-600`}>Saved shipping addresses</span>
+                      <a href="#/profile/addresses" onClick={() => setOpen(false)} className={`${mono} text-[9px] underline text-neutral-700`}>Manage</a>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {profile.addresses.map((a) => (
+                        <button
+                          key={a.id}
+                          type="button"
+                          onClick={() => {
+                            setShippingFields({
+                              name: a.name,
+                              phone: a.phone,
+                              address: a.address,
+                              city: a.city,
+                              pin: a.pin,
+                            });
+                          }}
+                          className={`${mono} border px-2.5 py-1 text-[9px] font-bold transition ${
+                            shippingFields.address === a.address
+                              ? "border-black bg-black text-white"
+                              : "border-black/30 bg-white hover:border-black"
+                          }`}
+                        >
+                          {a.label} ({a.city})
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {[
+                  ["name", "Full name", "text", shippingFields.name, (v: string) => setShippingFields((s) => ({ ...s, name: v }))],
+                  ["phone", "Phone", "tel", shippingFields.phone, (v: string) => setShippingFields((s) => ({ ...s, phone: v }))],
+                  ["address", "Delivery address", "text", shippingFields.address, (v: string) => setShippingFields((s) => ({ ...s, address: v }))],
+                  ["city", "City", "text", shippingFields.city, (v: string) => setShippingFields((s) => ({ ...s, city: v }))],
+                  ["pin", "PIN code", "text", shippingFields.pin, (v: string) => setShippingFields((s) => ({ ...s, pin: v }))],
+                ].map(([n, l, t, val, setVal]) => (
+                  <label key={n as string} className="block">
+                    <span className={`${mono} text-[10px] font-bold tracking-wider`}>{l as string}</span>
+                    <input
+                      required
+                      name={n as string}
+                      type={t as string}
+                      value={val as string}
+                      onChange={(e) => (setVal as (v: string) => void)(e.target.value)}
+                      className="mt-1 w-full border border-black px-3 py-3 text-sm outline-none focus:bg-neutral-100"
+                    />
                   </label>
                 ))}
                 <fieldset>
