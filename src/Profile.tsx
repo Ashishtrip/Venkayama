@@ -896,7 +896,7 @@ export default function Profile() {
                           {p.badge || "Archive"}
                         </span>
                         <button
-                          onClick={() => toggleWishlist(p.id)}
+                          onClick={() => toggleWishlist(p)}
                           aria-label={`Remove ${p.name} from wishlist`}
                           className={`${mono} absolute right-3 top-3 border border-black bg-white px-2 py-1 text-[9px] font-bold tracking-wider hover:bg-black hover:text-white`}
                         >

@@ -268,7 +268,7 @@ function ProductCard({ p }: { p: Product }) {
     if (!size) { setWarn(true); return; }
     add({ name: p.name, img: p.img, size, price: p.price }, buyNow);
   };
-  const wish = isWishlisted(p.id) || isWishlisted(p.sku) || isWishlisted(p.name);
+  const wish = isWishlisted(p);
   return (
     <article className="group flex flex-col border border-black/10 bg-white">
       <div className={`relative block aspect-[4/5] overflow-hidden ${isShot(p) ? "bg-[#f1e0d4]" : "bg-neutral-200"}`}>
@@ -280,7 +280,7 @@ function ProductCard({ p }: { p: Product }) {
         <button
           type="button"
           aria-label={wish ? `Remove ${p.name} from wishlist` : `Save ${p.name} to wishlist`}
-          onClick={() => toggleWishlist(p.id)}
+          onClick={() => toggleWishlist(p)}
           className={`absolute right-3 top-3 z-10 grid size-7 place-items-center border border-black transition ${
             wish ? "bg-black text-white" : "bg-white text-black hover:bg-black hover:text-white"
           }`}
@@ -344,7 +344,7 @@ function ProductPage({ id }: { id: string }) {
       </div></section>
     );
   }
-  const wish = isWishlisted(p.id) || isWishlisted(p.sku) || isWishlisted(p.name);
+  const wish = isWishlisted(p);
   const shots = [p.img, ...(p.gallery ?? [])];
   const cur = shots[Math.min(shot, shots.length - 1)];
   const d = details[p.cat];
@@ -424,7 +424,7 @@ function ProductPage({ id }: { id: string }) {
               </div>
               <button
                 type="button"
-                onClick={() => toggleWishlist(p.id)}
+                onClick={() => toggleWishlist(p)}
                 className={`${mono} mt-3 flex w-full items-center justify-center gap-2 border border-black/30 py-3 text-[10px] font-bold tracking-[0.15em] transition hover:border-black hover:bg-neutral-100`}
               >
                 <span>{wish ? "★ Saved in Wishlist" : "☆ Save to Wishlist"}</span>

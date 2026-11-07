@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { getSupabase } from "./supabase";
 import type { Status } from "../store";
 
@@ -62,13 +62,16 @@ export type UserProfile = {
   addresses: UserAddress[];
   paymentMethods: SavedPaymentMethod[];
   orders: UserOrderRecord[];
-  wishlist: string[]; // array of product IDs
+  wishlist: string[]; // array of product IDs or SKUs
   createdDate?: number;
 };
 
+export type WishlistTarget = string | { id?: string; sku?: string; name?: string };
+
 const PROFILE_EVENT = "venkayam_profile_updated";
 
-const uid = (prefix = "id") => `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+const uid = (prefix = "id") =>
+  `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 
 const getStorageKey = (email?: string, userId?: string) => {
   if (userId) return `venkayam_user_profile_${userId}`;
@@ -91,7 +94,11 @@ export function loadProfile(email?: string, userId?: string): UserProfile {
   if (typeof window === "undefined") return DEFAULT_PROFILE;
   try {
     const key = getStorageKey(email, userId);
-    const raw = localStorage.getItem(key);
+    let raw = localStorage.getItem(key);
+    // Fall back to guest storage if user key not yet written
+    if (!raw && (userId || email)) {
+      raw = localStorage.getItem("venkayam_user_profile_guest");
+    }
     if (raw) {
       const parsed = JSON.parse(raw);
       // Strip any legacy placeholder/dummy test records previously stored in browser
@@ -104,9 +111,9 @@ export function loadProfile(email?: string, userId?: string): UserProfile {
       const orders = (parsed.orders || []).filter(
         (o: UserOrderRecord) => o.id !== "VNK-1004" && o.id !== "VNK-1001"
       );
-      let wishlist = parsed.wishlist || [];
+
+      let wishlist: string[] = Array.isArray(parsed.wishlist) ? parsed.wishlist : [];
       if (
-        Array.isArray(wishlist) &&
         wishlist.length === 3 &&
         wishlist.includes("GEN-036") &&
         wishlist.includes("GEN-014") &&
@@ -137,79 +144,162 @@ export function saveProfile(profile: UserProfile, email?: string, userId?: strin
   try {
     const key = getStorageKey(email || profile.email, userId || profile.id);
     localStorage.setItem(key, JSON.stringify(profile));
-    window.dispatchEvent(new Event(PROFILE_EVENT));
+    // Also mirror to guest key for persistent continuity
+    if (key !== "venkayam_user_profile_guest") {
+      localStorage.setItem("venkayam_user_profile_guest", JSON.stringify(profile));
+    }
   } catch {}
 }
 
+/* =====================================================================================
+   Reactive Singleton Store
+   Ensures Header, all ProductCards, ProductPage, and Profile always share the exact same
+   in-memory wishlist and profile state without stale closures or overwrites.
+   ===================================================================================== */
+let currentProfile: UserProfile = DEFAULT_PROFILE;
+let currentSessionUser: { id?: string; email?: string; name?: string } | null = null;
+let storeInitialized = false;
+const listeners = new Set<() => void>();
+
+function notifyListeners() {
+  listeners.forEach((l) => l());
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(PROFILE_EVENT));
+  }
+}
+
+function commitProfile(next: UserProfile, syncToStorage = true) {
+  currentProfile = next;
+  if (syncToStorage) {
+    saveProfile(next, next.email || currentSessionUser?.email, currentSessionUser?.id);
+  }
+  notifyListeners();
+}
+
+function initProfileStore() {
+  if (storeInitialized || typeof window === "undefined") return;
+  storeInitialized = true;
+
+  // Load from local storage initially
+  currentProfile = loadProfile();
+
+  const sb = getSupabase();
+  sb.auth.getSession().then(({ data }) => {
+    const u = data.session?.user;
+    if (u) {
+      currentSessionUser = {
+        id: u.id,
+        email: u.email,
+        name: String(u.user_metadata?.full_name || u.email?.split("@")[0] || ""),
+      };
+      const loaded = loadProfile(u.email, u.id);
+      if (!loaded.fullName && u.user_metadata?.full_name) {
+        loaded.fullName = String(u.user_metadata.full_name);
+      }
+      if (!loaded.email && u.email) {
+        loaded.email = u.email;
+      }
+      // If guest had wishlist items, merge them
+      if (currentProfile.wishlist.length > 0) {
+        const mergedWishlist = Array.from(new Set([...loaded.wishlist, ...currentProfile.wishlist]));
+        loaded.wishlist = mergedWishlist;
+      }
+      commitProfile(loaded, true);
+    } else {
+      currentSessionUser = null;
+      commitProfile(loadProfile(), false);
+    }
+  });
+
+  sb.auth.onAuthStateChange((_e, s) => {
+    const u = s?.user;
+    if (u) {
+      currentSessionUser = {
+        id: u.id,
+        email: u.email,
+        name: String(u.user_metadata?.full_name || u.email?.split("@")[0] || ""),
+      };
+      const loaded = loadProfile(u.email, u.id);
+      commitProfile(loaded, false);
+    } else {
+      currentSessionUser = null;
+      commitProfile(loadProfile(), false);
+    }
+  });
+
+  window.addEventListener("storage", (e) => {
+    if (e.key && e.key.startsWith("venkayam_user_profile_")) {
+      const fresh = loadProfile(currentSessionUser?.email, currentSessionUser?.id);
+      currentProfile = fresh;
+      listeners.forEach((l) => l());
+    }
+  });
+}
+
+function extractIdentifiers(target: WishlistTarget): string[] {
+  if (!target) return [];
+  if (typeof target === "string") {
+    return [target.trim()].filter(Boolean);
+  }
+  return [target.sku, target.id, target.name]
+    .map((s) => (s ? String(s).trim() : ""))
+    .filter(Boolean);
+}
+
 export function useUserProfile() {
-  const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
-  const [sessionUser, setSessionUser] = useState<{ id?: string; email?: string; name?: string } | null>(null);
+  if (!storeInitialized && typeof window !== "undefined") {
+    initProfileStore();
+  }
+
+  const profile = useSyncExternalStore(
+    (callback) => {
+      listeners.add(callback);
+      return () => {
+        listeners.delete(callback);
+      };
+    },
+    () => currentProfile,
+    () => DEFAULT_PROFILE
+  );
+
+  const [sessionUser, setSessionUser] = useState<{ id?: string; email?: string; name?: string } | null>(
+    currentSessionUser
+  );
 
   useEffect(() => {
+    setSessionUser(currentSessionUser);
     const sb = getSupabase();
-    sb.auth.getSession().then(({ data }) => {
-      const u = data.session?.user;
-      if (u) {
-        setSessionUser({
-          id: u.id,
-          email: u.email,
-          name: String(u.user_metadata?.full_name || u.email?.split("@")[0] || ""),
-        });
-        const current = loadProfile(u.email, u.id);
-        if (!current.fullName && u.user_metadata?.full_name) {
-          current.fullName = String(u.user_metadata.full_name);
-        }
-        if (!current.email && u.email) {
-          current.email = u.email;
-        }
-        setProfile(current);
-      } else {
-        setSessionUser(null);
-        setProfile(loadProfile());
-      }
-    });
-
     const { data } = sb.auth.onAuthStateChange((_e, s) => {
       const u = s?.user;
       if (u) {
-        setSessionUser({
+        const sess = {
           id: u.id,
           email: u.email,
           name: String(u.user_metadata?.full_name || u.email?.split("@")[0] || ""),
-        });
-        const current = loadProfile(u.email, u.id);
-        setProfile(current);
+        };
+        currentSessionUser = sess;
+        setSessionUser(sess);
       } else {
+        currentSessionUser = null;
         setSessionUser(null);
-        setProfile(loadProfile());
       }
     });
-
-    const onUpdate = () => {
-      setProfile((prev) => loadProfile(prev.email, prev.id));
-    };
-
-    window.addEventListener(PROFILE_EVENT, onUpdate);
-    return () => {
-      data.subscription.unsubscribe();
-      window.removeEventListener(PROFILE_EVENT, onUpdate);
-    };
+    return () => data.subscription.unsubscribe();
   }, []);
 
   const updateDetails = async (data: Partial<{ fullName: string; phone: string; email?: string }>) => {
     const next: UserProfile = {
-      ...profile,
-      fullName: data.fullName ?? profile.fullName,
-      phone: data.phone ?? profile.phone,
-      email: data.email ?? profile.email,
+      ...currentProfile,
+      fullName: data.fullName ?? currentProfile.fullName,
+      phone: data.phone ?? currentProfile.phone,
+      email: data.email ?? currentProfile.email,
     };
-    setProfile(next);
-    saveProfile(next, next.email, sessionUser?.id);
+    commitProfile(next, true);
 
     // Sync with Supabase Auth user_metadata
     try {
       const sb = getSupabase();
-      if (sessionUser?.id) {
+      if (currentSessionUser?.id) {
         await sb.auth.updateUser({
           data: {
             full_name: next.fullName,
@@ -222,7 +312,7 @@ export function useUserProfile() {
 
   const addAddress = (addr: Omit<UserAddress, "id">) => {
     const newId = uid("addr");
-    let nextAddresses = [...profile.addresses];
+    let nextAddresses = [...currentProfile.addresses];
     if (addr.isDefault || nextAddresses.length === 0) {
       nextAddresses = nextAddresses.map((a) => ({ ...a, isDefault: false }));
     }
@@ -232,52 +322,48 @@ export function useUserProfile() {
       isDefault: addr.isDefault || nextAddresses.length === 0,
     };
     const next: UserProfile = {
-      ...profile,
+      ...currentProfile,
       addresses: [...nextAddresses, newAddress],
     };
-    setProfile(next);
-    saveProfile(next, next.email, sessionUser?.id);
+    commitProfile(next, true);
   };
 
   const updateAddress = (id: string, addr: Partial<UserAddress>) => {
-    let nextAddresses = profile.addresses.map((a) => (a.id === id ? { ...a, ...addr } : a));
+    let nextAddresses = currentProfile.addresses.map((a) => (a.id === id ? { ...a, ...addr } : a));
     if (addr.isDefault) {
       nextAddresses = nextAddresses.map((a) => ({ ...a, isDefault: a.id === id }));
     }
     const next: UserProfile = {
-      ...profile,
+      ...currentProfile,
       addresses: nextAddresses,
     };
-    setProfile(next);
-    saveProfile(next, next.email, sessionUser?.id);
+    commitProfile(next, true);
   };
 
   const deleteAddress = (id: string) => {
-    let nextAddresses = profile.addresses.filter((a) => a.id !== id);
+    let nextAddresses = currentProfile.addresses.filter((a) => a.id !== id);
     if (nextAddresses.length > 0 && !nextAddresses.some((a) => a.isDefault)) {
       nextAddresses[0].isDefault = true;
     }
     const next: UserProfile = {
-      ...profile,
+      ...currentProfile,
       addresses: nextAddresses,
     };
-    setProfile(next);
-    saveProfile(next, next.email, sessionUser?.id);
+    commitProfile(next, true);
   };
 
   const setDefaultAddress = (id: string) => {
-    const nextAddresses = profile.addresses.map((a) => ({ ...a, isDefault: a.id === id }));
+    const nextAddresses = currentProfile.addresses.map((a) => ({ ...a, isDefault: a.id === id }));
     const next: UserProfile = {
-      ...profile,
+      ...currentProfile,
       addresses: nextAddresses,
     };
-    setProfile(next);
-    saveProfile(next, next.email, sessionUser?.id);
+    commitProfile(next, true);
   };
 
   const addPaymentMethod = (pm: Omit<SavedPaymentMethod, "id">) => {
     const newId = uid("pm");
-    let nextPms = [...profile.paymentMethods];
+    let nextPms = [...currentProfile.paymentMethods];
     if (pm.isDefault || nextPms.length === 0) {
       nextPms = nextPms.map((p) => ({ ...p, isDefault: false }));
     }
@@ -288,62 +374,76 @@ export function useUserProfile() {
     } as SavedPaymentMethod;
 
     const next: UserProfile = {
-      ...profile,
+      ...currentProfile,
       paymentMethods: [...nextPms, newMethod],
     };
-    setProfile(next);
-    saveProfile(next, next.email, sessionUser?.id);
+    commitProfile(next, true);
   };
 
   const deletePaymentMethod = (id: string) => {
-    let nextPms = profile.paymentMethods.filter((p) => p.id !== id);
+    let nextPms = currentProfile.paymentMethods.filter((p) => p.id !== id);
     if (nextPms.length > 0 && !nextPms.some((p) => p.isDefault)) {
       nextPms[0].isDefault = true;
     }
     const next: UserProfile = {
-      ...profile,
+      ...currentProfile,
       paymentMethods: nextPms,
     };
-    setProfile(next);
-    saveProfile(next, next.email, sessionUser?.id);
+    commitProfile(next, true);
   };
 
   const setDefaultPaymentMethod = (id: string) => {
-    const nextPms = profile.paymentMethods.map((p) => ({ ...p, isDefault: p.id === id }));
+    const nextPms = currentProfile.paymentMethods.map((p) => ({ ...p, isDefault: p.id === id }));
     const next: UserProfile = {
-      ...profile,
+      ...currentProfile,
       paymentMethods: nextPms,
     };
-    setProfile(next);
-    saveProfile(next, next.email, sessionUser?.id);
+    commitProfile(next, true);
   };
 
   const recordOrder = (order: UserOrderRecord) => {
-    const nextOrders = [order, ...profile.orders.filter((o) => o.id !== order.id)];
+    const nextOrders = [order, ...currentProfile.orders.filter((o) => o.id !== order.id)];
     const next: UserProfile = {
-      ...profile,
+      ...currentProfile,
       orders: nextOrders,
     };
-    setProfile(next);
-    saveProfile(next, next.email, sessionUser?.id);
+    commitProfile(next, true);
   };
 
-  const toggleWishlist = (productIdentifier: string) => {
-    const exists = profile.wishlist.includes(productIdentifier);
-    const nextWishlist = exists
-      ? profile.wishlist.filter((id) => id !== productIdentifier)
-      : [...profile.wishlist, productIdentifier];
+  const isWishlisted = (target: WishlistTarget): boolean => {
+    const ids = extractIdentifiers(target);
+    if (!ids.length) return false;
+    return currentProfile.wishlist.some((w) => ids.includes(w));
+  };
+
+  const toggleWishlist = (target: WishlistTarget) => {
+    const ids = extractIdentifiers(target);
+    if (!ids.length) return;
+
+    const exists = currentProfile.wishlist.some((w) => ids.includes(w));
+    let nextWishlist: string[];
+
+    if (exists) {
+      // Remove all matching identifiers for this piece
+      nextWishlist = currentProfile.wishlist.filter((w) => !ids.includes(w));
+    } else {
+      // Add primary identifier (prefer SKU e.g. "GEN-001", otherwise id, otherwise name)
+      const primary =
+        typeof target === "string"
+          ? target
+          : (target.sku || target.id || target.name || "");
+      if (primary && !currentProfile.wishlist.includes(primary)) {
+        nextWishlist = [...currentProfile.wishlist, primary];
+      } else {
+        nextWishlist = currentProfile.wishlist;
+      }
+    }
 
     const next: UserProfile = {
-      ...profile,
+      ...currentProfile,
       wishlist: nextWishlist,
     };
-    setProfile(next);
-    saveProfile(next, next.email, sessionUser?.id);
-  };
-
-  const isWishlisted = (productIdentifier: string) => {
-    return profile.wishlist.includes(productIdentifier);
+    commitProfile(next, true);
   };
 
   return {
@@ -363,4 +463,3 @@ export function useUserProfile() {
     wishlistCount: profile.wishlist.length,
   };
 }
-
