@@ -19,6 +19,7 @@ import {
 } from "./store"
 import { useCart } from "./Cart"
 import { getSupabase } from "./lib/supabase"
+import { downloadGSTInvoice } from "./lib/invoiceGenerator"
 
 const mono = "font-mono uppercase"
 const disp = "font-display uppercase"
@@ -716,7 +717,15 @@ export default function Profile() {
                           </div>
                         </div>
 
-                        <div className="mt-4 flex flex-wrap gap-2">
+                        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-black/10 pt-4">
+                          <button
+                            type="button"
+                            onClick={() => downloadGSTInvoice(o)}
+                            className={`${mono} flex items-center gap-2 border border-black bg-black px-4 py-2.5 text-[10px] font-bold tracking-[0.12em] text-white transition hover:bg-neutral-800 shadow-[2px_2px_0_0_#000]`}
+                            title="Download official GST Tax Invoice PDF (HSN 6109)"
+                          >
+                            <span>📄 Download GST Invoice</span>
+                          </button>
                           <a
                             href="#/returns"
                             className={`${mono} text-[10px] font-bold tracking-wider underline text-neutral-600 hover:text-black`}

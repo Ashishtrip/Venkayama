@@ -1,5 +1,6 @@
 import { useState } from "react"
 import Cooking from "./components/Cooking"
+import { downloadGSTInvoice } from "./lib/invoiceGenerator"
 import {
   STUDIO,
   actions,
@@ -270,6 +271,19 @@ export function TrackOrder() {
                     >
                       Placed {new Date(res.createdAt).toLocaleString("en-IN")}
                     </p>
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => downloadGSTInvoice(res)}
+                        className={`${mono} flex items-center gap-2 border border-black bg-black px-4 py-2.5 text-[10px] font-bold tracking-[0.12em] text-white transition hover:bg-neutral-800 shadow-[2px_2px_0_0_#000]`}
+                        title="Download official GST Tax Invoice PDF (HSN 6109)"
+                      >
+                        <span>📄 Download GST Invoice</span>
+                      </button>
+                      <span className={`${mono} text-[9px] tracking-wider text-neutral-500`}>
+                        GST Compliant • HSN 6109
+                      </span>
+                    </div>
                     {res.status === "Returned" ? (
                       <p
                         className={`${mono} mt-8 border-2 border-black p-4 text-[11px] tracking-[0.15em]`}

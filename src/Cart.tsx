@@ -13,7 +13,8 @@ import {
 import { projectId, publicAnonKey } from "../utils/supabase/info"
 import { createContext, useContext, useEffect, useMemo, useState } from "react"
 import { useSession } from "./Auth"
-import { useUserProfile, type UserAddress } from "./lib/userProfile"
+import { useUserProfile, type UserAddress, type UserOrderRecord } from "./lib/userProfile"
+import { downloadGSTInvoice } from "./lib/invoiceGenerator"
 
 const mono = "font-mono uppercase"
 const disp = "font-display uppercase"
@@ -70,6 +71,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [pay, setPay] = useState<"UPI" | "Card">("UPI")
   const [orderId, setOrderId] = useState("")
   const [trackCode, setTrackCode] = useState("")
+  const [completedOrder, setCompletedOrder] = useState<UserOrderRecord | null>(null)
   const [stage, setStage] = useState<null | "loading" | "done">(null)
   const [progress, setProgress] = useState(0)
   const [paid, setPaid] = useState(0)
@@ -239,7 +241,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     })
 
     // Record into user profile order history
-    recordOrder({
+    const placedRecord: UserOrderRecord = {
       id: order.id,
       track: order.track ?? "",
       createdAt: Date.now(),
@@ -251,7 +253,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       status: "Placed",
       amount: total,
       items: orderItems,
-    })
+    }
+    recordOrder(placedRecord)
+    setCompletedOrder(placedRecord)
 
     setOrderId(order.id)
     setTrackCode(order.track ?? "")
@@ -903,12 +907,40 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                   </span>
                 </p>
               )}
-              <button
-                onClick={() => setStage(null)}
-                className={`${mono} mt-8 bg-black px-8 py-4 text-[11px] font-bold tracking-[0.15em] text-white transition hover:bg-neutral-800`}
-              >
-                Keep shopping
-              </button>
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+                {completedOrder && (
+                  <button
+                    type="button"
+                    onClick={() => downloadGSTInvoice(completedOrder)}
+                    className={`${mono} flex items-center gap-2 border-2 border-black bg-white px-6 py-4 text-[11px] font-bold tracking-[0.15em] text-black shadow-[4px_4px_0_0_#000] transition hover:bg-neutral-100`}
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                    Download GST Invoice
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStage(null)
+                    setCompletedOrder(null)
+                  }}
+                  className={`${mono} bg-black px-8 py-4 text-[11px] font-bold tracking-[0.15em] text-white transition hover:bg-neutral-800`}
+                >
+                  Keep shopping
+                </button>
+              </div>
             </div>
           )}
         </div>
